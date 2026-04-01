@@ -12,7 +12,6 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ics-js@0.10.1/dist/ics.min.js"></script>
 
   <style>
     * {
@@ -836,7 +835,7 @@
         <i class="fa-solid fa-circle-info"></i>
         <div>
           Ative lembretes locais para ser avisado antes do plantão. Avisos funcionam até 24h antes.
-          <div class="local-note">Permissão do navegador é necessária. Mantemos apenas no dispositivo.</div>
+          <div class="local-note">Permissão do navegador é necessária. Se negar, reative em: cadeado do navegador → Permissões → Notificações.</div>
         </div>
       </div>
       <div class="notify-row">
@@ -889,6 +888,7 @@
         deferredPrompt: null,
         notificationTimer: null,
         notifyLeadMinutes: parseInt(localStorage.getItem('notifyLeadMinutes') || '60', 10),
+        notifyInterval: null,
 
         init() {
           this.loadShifts();
@@ -899,6 +899,7 @@
           this.setupInstallPrompt();
           this.syncNotifyUI();
           this.scheduleNextNotification();
+          this.startNotifyHeartbeat();
           Calendar.render();
         },
 
@@ -1098,6 +1099,11 @@
           if (delay > maxDelay) delay = maxDelay;
 
           this.notificationTimer = setTimeout(() => this.fireNotification(next.shift), delay);
+        },
+
+        startNotifyHeartbeat() {
+          if (this.notifyInterval) clearInterval(this.notifyInterval);
+          this.notifyInterval = setInterval(() => this.scheduleNextNotification(), 15 * 60 * 1000);
         },
 
         async fireNotification(shift) {
@@ -1400,23 +1406,46 @@
             this.showToast('Nenhum compromisso para exportar');
             return;
           }
-          const cal = new ICS();
+          const tz = 'America/Sao_Paulo';
+          const lead = this.notifyLeadMinutes;
+          const pad = (n) => String(n).padStart(2, '0');
+          const fmt = (d) => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+          const esc = (str = '') => str.replace(/,/g, '\\,').replace(/;/g, '\\;');
+          
+          const lines = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//SistPlantao//PT-BR',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH'
+          ];
+
           this.shifts.forEach(s => {
-            const [year, month, day] = s.date.split('-').map(Number);
-            const [hh = 0, mm = 0] = (s.time || '00:00').split(':').map(Number);
-            const start = new Date(year, month - 1, day, hh, mm);
-            // default duration 1h for avulso; for fixed we keep 12h window
+            const start = this.getShiftDateTime(s) || new Date();
             const durationHrs = s.type === 'fixed' ? 12 : 1;
             const end = new Date(start.getTime() + durationHrs * 3600000);
-            cal.addEvent(
-              s.local || 'Plantão',
-              s.obs || (s.type === 'fixed' ? 'Escala fixa' : 'Compromisso'),
-              s.local || '',
-              start,
-              end
+            const uid = `${s.id || crypto.randomUUID()}@sistplantao`;
+            lines.push(
+              'BEGIN:VEVENT',
+              `UID:${uid}`,
+              `DTSTAMP:${fmt(new Date())}Z`,
+              `SUMMARY:${esc(s.local || 'Plantão')}`,
+              `DESCRIPTION:${esc(s.obs || (s.type === 'fixed' ? 'Escala fixa' : 'Compromisso'))}`,
+              `DTSTART;TZID=${tz}:${fmt(start)}`,
+              `DTEND;TZID=${tz}:${fmt(end)}`,
+              `LOCATION:${esc(s.local || '')}`,
+              'BEGIN:VALARM',
+              `TRIGGER:-PT${lead}M`,
+              'ACTION:DISPLAY',
+              'DESCRIPTION:Lembrete de plantão',
+              'END:VALARM',
+              'END:VEVENT'
             );
           });
-          const blob = new Blob([cal.build()], { type: 'text/calendar;charset=utf-8' });
+
+          lines.push('END:VCALENDAR');
+
+          const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
