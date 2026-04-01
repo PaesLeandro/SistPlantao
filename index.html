@@ -1409,7 +1409,11 @@
           const calendarSection = document.getElementById('calendar-section');
           if (!calendarSection) return;
           try {
-            const canvas = await html2canvas(calendarSection, { scale: 2 });
+            const prevTheme = this.theme;
+            // Força tema claro para melhor leitura no PDF
+            document.documentElement.setAttribute('data-theme', 'light');
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const canvas = await html2canvas(calendarSection, { scale: 2, backgroundColor: '#ffffff' });
             const imgData = canvas.toDataURL('image/png');
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('p', 'mm', 'a4');
@@ -1427,6 +1431,11 @@
             this.showToast('PDF exportado com sucesso');
           } catch (err) {
             await Swal.fire({ icon: 'error', title: 'Erro ao gerar PDF', text: 'Tente novamente.', confirmButtonColor: '#ef476f' });
+          } finally {
+            // Restaura o tema anterior
+            if (this.theme === 'dark') {
+              document.documentElement.setAttribute('data-theme', 'dark');
+            }
           }
         },
 
