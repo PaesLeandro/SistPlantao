@@ -23,7 +23,7 @@ Agenda e escala de plantões offline-first, instalável como app (PWA) e pronta 
 - `icons/` — ícones PNG exigidos pelo manifest.
 
 ## Rodar local
-```
+```bash
 npm install -g serve
 serve -s .
 # http://localhost:3000

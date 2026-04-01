@@ -578,6 +578,29 @@
       transform: translateY(-1px);
     }
 
+    .notify-row {
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .status-pill i {
+      color: var(--accent);
+    }
+
     .install-btn {
       width: 100%;
       padding: 12px;
@@ -807,6 +830,32 @@
       <button id="btn-install" class="install-btn hidden" onclick="App.promptInstall()"><i class="fa-solid fa-download"></i> Instalar como App</button>
     </div>
 
+    <div class="glass-card">
+      <div class="section-title"><i class="fa-solid fa-bell"></i> Notificações</div>
+      <div class="info-banner">
+        <i class="fa-solid fa-circle-info"></i>
+        <div>
+          Ative lembretes locais para ser avisado antes do plantão. Avisos funcionam até 24h antes.
+          <div class="local-note">Permissão do navegador é necessária. Mantemos apenas no dispositivo.</div>
+        </div>
+      </div>
+      <div class="notify-row">
+        <div>
+          <label class="field-label" for="notify-lead">Avisar com</label>
+          <select id="notify-lead" onchange="App.changeNotifyLead(event)">
+            <option value="10">10 minutos</option>
+            <option value="60">1 hora</option>
+            <option value="360">6 horas</option>
+            <option value="1440">24 horas</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
+          <button class="btn-ghost" id="btn-notify" onclick="App.requestNotifications()"><i class="fa-solid fa-bell"></i> Ativar lembretes</button>
+          <span id="notify-status" class="status-pill"><i class="fa-solid fa-circle-minus"></i> Desativado</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Navegação do Calendário -->
     <div id="calendar-section">
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; padding: 0 5px;">
@@ -838,6 +887,8 @@
         activePanel: null,
         avulsoType: 'daily',
         deferredPrompt: null,
+        notificationTimer: null,
+        notifyLeadMinutes: parseInt(localStorage.getItem('notifyLeadMinutes') || '60', 10),
 
         init() {
           this.loadShifts();
@@ -846,6 +897,8 @@
           this.setDefaultDates();
           this.setupValidation();
           this.setupInstallPrompt();
+          this.syncNotifyUI();
+          this.scheduleNextNotification();
           Calendar.render();
         },
 
@@ -957,6 +1010,119 @@
         document.getElementById('btn-install').classList.add('hidden');
       });
         },
+
+        syncNotifyUI() {
+          document.getElementById('notify-lead').value = String(this.notifyLeadMinutes);
+          const status = document.getElementById('notify-status');
+          const btn = document.getElementById('btn-notify');
+          if (!('Notification' in window)) {
+            status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Não suportado';
+            btn.disabled = true;
+            return;
+          }
+          const perm = Notification.permission;
+          if (perm === 'granted') {
+            status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Ativado';
+            btn.textContent = 'Lembretes ativos';
+            btn.disabled = true;
+          } else if (perm === 'denied') {
+            status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Bloqueado';
+            btn.textContent = 'Permissão negada';
+            btn.disabled = true;
+          } else {
+            status.innerHTML = '<i class="fa-solid fa-circle-minus"></i> Desativado';
+            btn.textContent = 'Ativar lembretes';
+            btn.disabled = false;
+          }
+        },
+
+        changeNotifyLead(event) {
+          const val = parseInt(event.target.value, 10) || 60;
+          this.notifyLeadMinutes = val;
+          localStorage.setItem('notifyLeadMinutes', String(val));
+          this.scheduleNextNotification();
+        },
+
+        async requestNotifications() {
+          if (!('Notification' in window)) {
+            this.showToast('Navegador não suporta notificações', true);
+            return;
+          }
+          const perm = await Notification.requestPermission();
+          this.syncNotifyUI();
+          if (perm === 'granted') {
+            this.scheduleNextNotification();
+            this.showToast('Lembretes ativados');
+          } else {
+            this.showToast('Permissão não concedida', true);
+          }
+        },
+
+        getNextShift() {
+          const now = Date.now();
+          const shiftsWithDate = this.shifts
+            .map(s => {
+              const dt = this.getShiftDateTime(s);
+              return { shift: s, time: dt ? dt.getTime() : null };
+            })
+            .filter(x => x.time && x.time > now)
+            .sort((a, b) => a.time - b.time);
+          return shiftsWithDate.length ? shiftsWithDate[0] : null;
+        },
+
+        getShiftDateTime(shift) {
+          if (!shift.date) return null;
+          const [y, m, d] = shift.date.split('-').map(Number);
+          const [hh = 0, mm = 0] = (shift.time || '00:00').split(':').map(Number);
+          return new Date(y, m - 1, d, hh, mm);
+        },
+
+        scheduleNextNotification() {
+          if (this.notificationTimer) {
+            clearTimeout(this.notificationTimer);
+            this.notificationTimer = null;
+          }
+          if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+          const next = this.getNextShift();
+          if (!next) return;
+
+          const leadMs = this.notifyLeadMinutes * 60 * 1000;
+          const fireTime = next.time - leadMs;
+          const now = Date.now();
+          let delay = fireTime - now;
+          if (delay < 0) delay = 0;
+
+          // Cap para não estourar setTimeout
+          const maxDelay = 2147483000; // ~24.8 dias
+          if (delay > maxDelay) delay = maxDelay;
+
+          this.notificationTimer = setTimeout(() => this.fireNotification(next.shift), delay);
+        },
+
+        async fireNotification(shift) {
+          try {
+            const reg = await navigator.serviceWorker.getRegistration();
+            const dt = this.getShiftDateTime(shift);
+            const when = dt ? dt.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+            const body = `${shift.local || 'Compromisso'} • ${when}`;
+            if (reg && reg.showNotification) {
+              reg.showNotification('Lembrete de plantão', {
+                body,
+                tag: `shift-${shift.id}`,
+                data: { url: location.origin },
+                icon: '/icons/icon-192.png',
+                badge: '/icons/icon-192.png'
+              });
+            } else if ('Notification' in window) {
+              new Notification('Lembrete de plantão', { body });
+            }
+          } catch (err) {
+            console.error('Notificação falhou', err);
+          } finally {
+            this.scheduleNextNotification();
+          }
+        },
         
         async promptInstall() {
           if (!this.deferredPrompt) return;
@@ -1023,6 +1189,7 @@
           document.getElementById('avulso-local').value = '';
           document.getElementById('avulso-obs').value = '';
           Calendar.render();
+          this.scheduleNextNotification();
         },
 
         async handleCalculate() {
@@ -1150,6 +1317,7 @@
           });
           
           Calendar.render();
+          this.scheduleNextNotification();
           btnCalc.textContent = originalText;
           btnCalc.classList.remove('loading');
           btnCalc.disabled = false;
@@ -1172,6 +1340,7 @@
             this.saveShifts();
             Calendar.render();
             this.showToast('Compromisso removido com sucesso');
+            this.scheduleNextNotification();
           }
         },
 
@@ -1197,6 +1366,7 @@
             this.saveShifts();
             Calendar.render();
             this.showToast('Todos os compromissos foram removidos');
+            this.scheduleNextNotification();
           }
         },
 

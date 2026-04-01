@@ -1,4 +1,4 @@
-const CACHE_NAME = 'plantao-pro-v36-cache-v3';
+const CACHE_NAME = 'plantao-pro-v36-cache-v4';
 const OFFLINE_PAGE = './offline.html';
 const ASSETS = [
   './',
@@ -47,6 +47,18 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         return resp;
       }).catch(() => cached);
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (const client of windowClients) {
+        if ('focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('/');
     })
   );
 });
