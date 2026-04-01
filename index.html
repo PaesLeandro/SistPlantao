@@ -208,7 +208,7 @@
     input, select, textarea {
       width: 100%;
       padding: 12px;
-      background: rgba(255, 255, 255, 0.03);
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
       color: var(--text);
@@ -216,6 +216,11 @@
       font-size: 14px;
       outline: none;
       transition: all 0.3s ease;
+    }
+
+    select option {
+      background: var(--surface);
+      color: var(--text);
     }
 
     input:focus, select:focus, textarea:focus {
