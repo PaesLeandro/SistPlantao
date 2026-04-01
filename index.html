@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SistPlantão Pro - V36</title>
+  <meta name="theme-color" content="#00d4ff" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ics-js@0.10.1/dist/ics.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --accent: #00d4ff;
+      --accent-secondary: #ff9f43;
+      --success: #2ed573;
+      --danger: #ef476f;
+      --radius: 16px;
+      --font: 'Sora', sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #03070d;
+      --surface: rgba(16, 24, 39, 0.95);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --surface-hover: rgba(30, 41, 59, 0.9);
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="light"] {
+      --bg: #f3f4f6;
+      --surface: rgba(255, 255, 255, 0.95);
+      --border: rgba(0, 0, 0, 0.1);
+      --text: #111827;
+      --muted: #6b7280;
+      --surface-hover: rgba(243, 244, 246, 0.9);
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 120px;
+      overflow-x: hidden;
+      transition: background 0.3s;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--surface);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--accent);
+      border-radius: 10px;
+      transition: background 0.3s;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00a3cc;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 16px;
+      background: rgba(3, 7, 13, 0.7);
+      backdrop-filter: blur(15px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+    }
+
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+
+    .logo {
+      font-weight: 800;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      animation: gradientShift 3s ease infinite;
+      background-size: 200% auto;
+    }
+
+    @keyframes gradientShift {
+      0%, 100% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 100% 50%;
+      }
+    }
+
+    .logo span {
+      color: var(--accent);
+      background: none;
+      -webkit-background-clip: unset;
+      background-clip: unset;
+    }
+
+    main {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+
+    .glass-card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      animation: slideIn 0.3s ease-out;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 800;
+      margin: 0 0 12px 0;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--accent);
+      display: inline-block;
+      letter-spacing: 0.5px;
+    }
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin: 12px 0 6px 4px;
+      letter-spacing: 0.5px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 212, 255, 0.1);
+      border-color: var(--accent);
+    }
+
+    input.invalid {
+      border-color: var(--danger);
+      animation: shake 0.3s;
+    }
+
+    @keyframes shake {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      25% {
+        transform: translateX(-5px);
+      }
+      75% {
+        transform: translateX(5px);
+      }
+    }
+
+    .color-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .color-dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    .color-dot.active {
+      border-color: white;
+      transform: scale(1.15);
+    }
+
+    .color-dot:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .btn-calc, .btn-avulso {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent), #0061ff);
+      border: none;
+      border-radius: 12px;
+      color: #000;
+      font-weight: 800;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: transform 0.2s, opacity 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-avulso {
+      background: linear-gradient(135deg, var(--accent-secondary), #ff6b35);
+    }
+
+    .btn-calc:active, .btn-avulso:active {
+      transform: scale(0.98);
+    }
+
+    .btn-calc:disabled, .btn-avulso:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-calc::after, .btn-avulso::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .btn-calc:active::after, .btn-avulso:active::after {
+      width: 300px;
+      height: 300px;
+    }
+
+    .btn-calc.loading, .btn-avulso.loading {
+      position: relative;
+      color: transparent;
+    }
+
+    .btn-calc.loading::before, .btn-avulso.loading::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      margin: -10px 0 0 -10px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .type-selector {
+      display: flex;
+      gap: 10px;
+      margin: 12px 0;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px;
+      border-radius: 12px;
+    }
+
+    .type-option {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .type-option.active {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .type-option.daily.active {
+      background: var(--success);
+    }
+
+    .type-option.extra.active {
+      background: var(--accent-secondary);
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      width: 100%;
+      table-layout: fixed;
+    }
+
+    .cal-cell {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      min-height: 100px;
+      padding: 6px 3px 3px 3px;
+      position: relative;
+      overflow-y: auto;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cal-cell:has(.shift-chip) {
+      background: linear-gradient(135deg, var(--surface), rgba(0, 212, 255, 0.05));
+    }
+
+    .day-num {
+      font-size: 12px;
+      font-weight: 800;
+      background: rgba(0, 0, 0, 0.3);
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .shift-chip {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 8px 4px;
+      border-radius: 10px;
+      color: #fff;
+      margin-top: 6px;
+      text-align: center;
+      display: block;
+      overflow: hidden;
+      white-space: nowrap;
+      cursor: pointer;
+      line-height: 1.2;
+      transition: all 0.2s ease;
+      position: relative;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .shift-chip.avulso-daily {
+      background: linear-gradient(135deg, var(--success), #1e8e3e);
+    }
+
+    .shift-chip.avulso-extra {
+      background: linear-gradient(135deg, var(--accent-secondary), #ff6b35);
+    }
+
+    .shift-chip::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .shift-chip:hover::before {
+      left: 100%;
+    }
+
+    .shift-chip:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .shift-info {
+      font-family: 'JetBrains Mono';
+      font-size: 8px;
+      display: block;
+      opacity: 0.9;
+      margin-top: 2px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 2px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-type {
+      font-size: 7px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 4px;
+      border-radius: 4px;
+      margin-left: 4px;
+    }
+
+    .empty-day {
+      text-align: center;
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 20px;
+      opacity: 0.5;
+    }
+
+    .nav-bar {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(16, 24, 39, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      display: flex;
+      padding: 6px;
+      z-index: 1000;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .nav-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: none;
+      background: none;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      transition: 0.3s;
+      position: relative;
+    }
+
+    .nav-btn.active {
+      color: var(--accent);
+      background: rgba(0, 212, 255, 0.1);
+    }
+
+    .nav-btn.active::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.2;
+      animation: pulse 2s infinite;
+    }
+
+    .info-banner {
+      background: linear-gradient(120deg, rgba(0, 212, 255, 0.15), rgba(255, 255, 255, 0.04));
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 12px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+    }
+
+    .info-banner i {
+      color: var(--accent);
+      font-size: 16px;
+    }
+
+    .backup-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn-ghost {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .install-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--accent);
+      background: rgba(0, 212, 255, 0.12);
+      color: var(--text);
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .install-btn:hover {
+      background: rgba(0, 212, 255, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .local-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 0.2;
+      }
+      70% {
+        transform: scale(1.3);
+        opacity: 0;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 0;
+      }
+    }
+
+    .toast-success {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--success);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 2000;
+      animation: slideUp 0.3s ease-out;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    [data-tooltip] {
+      position: relative;
+    }
+
+    [data-tooltip]::before {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-size: 10px;
+      border-radius: 4px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 1000;
+    }
+
+    [data-tooltip]:hover::before {
+      opacity: 1;
+    }
+
+    @media (max-width: 480px) {
+      .cal-grid {
+        gap: 2px;
+      }
+
+      .cal-cell {
+        min-height: 85px;
+      }
+
+      .shift-chip {
+        font-size: 7px;
+        padding: 5px 2px;
+      }
+
+      .shift-info {
+        font-size: 6px;
+      }
+
+      .day-num {
+        font-size: 9px;
+        width: 20px;
+        height: 20px;
+      }
+
+      .glass-card {
+        padding: 12px;
+      }
+
+      .nav-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 16px;
+      }
+
+      .type-option {
+        font-size: 11px;
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo"><i class="fa-solid fa-notes-medical" style="color:var(--accent)"></i> SIST<span>PLANTÃO</span></div>
+    <button onclick="App.toggleTheme()" aria-label="Alternar tema" data-tooltip="Alternar tema" style="background:none; border:none; color:var(--text); font-size: 18px; cursor: pointer;"><i class="fa-solid fa-circle-half-stroke"></i></button>
+  </header>
+
+  <main>
+    <!-- Formulário Principal - Escala Fixa -->
+    <div id="form-panel" class="glass-card hidden">
+      <div class="section-title"><i class="fa-solid fa-calendar-week"></i> ESCALA FIXA</div>
+      
+      <label class="field-label" for="f-local">Unidade</label>
+      <input type="text" id="f-local" placeholder="Ex: Hospital Central" />
+
+      <label class="field-label">Cor</label>
+      <div class="color-row" id="color-picker"></div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div>
+          <label class="field-label" for="f-time-start">Entrada</label>
+          <input type="time" id="f-time-start" value="05:00" />
+        </div>
+        <div>
+          <label class="field-label" for="f-work">Trabalha (h)</label>
+          <input type="number" id="f-work" value="48" min="1" />
+        </div>
+      </div>
+
+      <label class="field-label" for="f-rest">Folga Real (h) após sair</label>
+      <input type="number" id="f-rest" value="96" min="0" />
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div>
+          <label class="field-label" for="f-start">Início</label>
+          <input type="date" id="f-start" />
+        </div>
+        <div>
+          <label class="field-label" for="f-end">Até</label>
+          <input type="date" id="f-end" />
+        </div>
+      </div>
+
+      <button class="btn-calc" id="btn-calc" onclick="App.handleCalculate()">Fixar Escala</button>
+    </div>
+
+    <!-- Formulário Unificado - Compromisso Avulso -->
+    <div id="avulso-panel" class="glass-card hidden">
+      <div class="section-title"><i class="fa-solid fa-plus-circle"></i> COMPROMISSO AVULSO</div>
+      
+      <div class="type-selector">
+        <div class="type-option daily active" onclick="App.selectAvulsoType('daily')">
+          <i class="fa-solid fa-sun"></i> Serviço Diário
+        </div>
+        <div class="type-option extra" onclick="App.selectAvulsoType('extra')">
+          <i class="fa-solid fa-plus-circle"></i> Plantão Extra
+        </div>
+      </div>
+
+      <label class="field-label" for="avulso-local">Título / Unidade</label>
+      <input type="text" id="avulso-local" placeholder="Ex: UBS Central / Cobertura de Férias" />
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div>
+          <label class="field-label" for="avulso-date">Data</label>
+          <input type="date" id="avulso-date" />
+        </div>
+        <div>
+          <label class="field-label" for="avulso-time">Horário</label>
+          <input type="time" id="avulso-time" value="08:00" />
+        </div>
+      </div>
+
+      <label class="field-label" for="avulso-obs">Descrição / Observações</label>
+      <textarea id="avulso-obs" rows="2" placeholder="Ex: Atendimento ambulatorial, Cobertura de férias, Reunião, etc..."></textarea>
+
+      <button class="btn-avulso" id="btn-avulso" onclick="App.addAvulso()">Adicionar Compromisso</button>
+    </div>
+
+    <!-- Navegação do Calendário -->
+    <div class="glass-card">
+      <div class="section-title"><i class="fa-solid fa-shield-halved"></i> Dados & Backup</div>
+      <div class="info-banner">
+        <i class="fa-solid fa-circle-info"></i>
+        <div>
+          Os dados ficam salvos apenas neste dispositivo. Faça backup para não perder suas escalas e compromissos.
+          <div class="local-note">Sem sincronização em nuvem. Exporte em PDF/ICS antes de limpar o navegador ou trocar de aparelho.</div>
+        </div>
+      </div>
+      <div class="backup-actions">
+        <button class="btn-ghost" onclick="App.exportPdf()"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
+        <button class="btn-ghost" onclick="App.exportICS()"><i class="fa-solid fa-calendar-plus"></i> Exportar ICS</button>
+      </div>
+      <button id="btn-install" class="install-btn hidden" onclick="App.promptInstall()"><i class="fa-solid fa-download"></i> Instalar como App</button>
+    </div>
+
+    <!-- Navegação do Calendário -->
+    <div id="calendar-section">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; padding: 0 5px;">
+        <button onclick="Calendar.prev()" aria-label="Mês anterior" data-tooltip="Mês anterior" style="background:none; border:none; color:var(--muted); cursor: pointer; padding: 10px;"><i class="fa-solid fa-chevron-left"></i></button>
+        <div id="cal-title" style="font-weight: 800; font-size: 15px; text-transform: capitalize;"></div>
+        <button onclick="Calendar.next()" aria-label="Próximo mês" data-tooltip="Próximo mês" style="background:none; border:none; color:var(--muted); cursor: pointer; padding: 10px;"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </main>
+
+    <nav class="nav-bar">
+    <button id="nav-cal" class="nav-btn active" onclick="App.setActiveNav('cal'); Calendar.render()" aria-label="Calendário" data-tooltip="Calendário"><i class="fa-solid fa-calendar-alt"></i></button>
+    <button id="nav-avulso" class="nav-btn" onclick="App.toggleForm('avulso')" aria-label="Compromisso Avulso" data-tooltip="Compromisso Avulso"><i class="fa-solid fa-plus-circle"></i></button>
+    <button id="nav-fixed" class="nav-btn" onclick="App.toggleForm('fixed')" aria-label="Escala Fixa" data-tooltip="Escala Fixa"><i class="fa-solid fa-calendar-week"></i></button>
+    <button id="nav-clear" class="nav-btn" onclick="App.clearAll()" aria-label="Limpar tudo" data-tooltip="Limpar tudo"><i class="fa-solid fa-trash-alt"></i></button>
+  </nav>
+
+  <script>
+    (function() {
+      const STORAGE_KEY = 'plantao_pro_v36';
+      const COLORS = ['#00d4ff', '#ff9f43', '#2ed573', '#ef476f', '#8338ec', '#ffbe0b'];
+
+      const App = {
+        shifts: [],
+        theme: localStorage.getItem('theme') || 'dark',
+        selectedColor: COLORS[0],
+        activePanel: null,
+        avulsoType: 'daily',
+        deferredPrompt: null,
+
+        init() {
+          this.loadShifts();
+          this.applyTheme();
+          this.buildPicker();
+          this.setDefaultDates();
+          this.setupValidation();
+          this.setupInstallPrompt();
+          Calendar.render();
+        },
+
+        loadShifts() {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          this.shifts = stored ? JSON.parse(stored) : [];
+        },
+
+        saveShifts() {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.shifts));
+        },
+
+        setDefaultDates() {
+          const today = new Date();
+          const threeMonthsLater = new Date();
+          threeMonthsLater.setMonth(today.getMonth() + 3);
+          
+          document.getElementById('f-start').valueAsDate = today;
+          document.getElementById('f-end').valueAsDate = threeMonthsLater;
+          document.getElementById('avulso-date').valueAsDate = today;
+        },
+
+        setupValidation() {
+          const startInput = document.getElementById('f-start');
+          const endInput = document.getElementById('f-end');
+          
+          const validateDates = () => {
+            const start = new Date(startInput.value);
+            const end = new Date(endInput.value);
+            if (start > end) {
+              startInput.classList.add('invalid');
+              endInput.classList.add('invalid');
+              return false;
+            } else {
+              startInput.classList.remove('invalid');
+              endInput.classList.remove('invalid');
+              return true;
+            }
+          };
+          
+          startInput.addEventListener('change', validateDates);
+          endInput.addEventListener('change', validateDates);
+        },
+
+        showToast(message, isError = false) {
+          const existingToast = document.querySelector('.toast-success');
+          if (existingToast) existingToast.remove();
+          
+          const toast = document.createElement('div');
+          toast.className = 'toast-success';
+          toast.style.background = isError ? '#ef476f' : '#2ed573';
+          toast.textContent = message;
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 3000);
+        },
+
+        buildPicker() {
+          const pickerHtml = COLORS.map((c, i) => 
+            `<div class="color-dot ${i === 0 ? 'active' : ''}" style="background:${c}" onclick="App.pickColor('${c}', event)" tabindex="0" role="button" aria-label="Cor ${c}" data-tooltip="Selecionar cor"></div>`
+          ).join('');
+          document.getElementById('color-picker').innerHTML = pickerHtml;
+        },
+
+        pickColor(c, e) {
+          this.selectedColor = c;
+          document.querySelectorAll('.color-dot').forEach(el => el.classList.remove('active'));
+          if (e && e.target) e.target.classList.add('active');
+        },
+
+        selectAvulsoType(type) {
+          this.avulsoType = type;
+          const dailyOption = document.querySelector('.type-option.daily');
+          const extraOption = document.querySelector('.type-option.extra');
+          
+          if (type === 'daily') {
+            dailyOption.classList.add('active');
+            extraOption.classList.remove('active');
+          } else {
+            extraOption.classList.add('active');
+            dailyOption.classList.remove('active');
+          }
+        },
+
+        toggleTheme() { 
+          this.theme = this.theme === 'dark' ? 'light' : 'dark'; 
+          this.applyTheme(); 
+          this.showToast(`Tema ${this.theme === 'dark' ? 'escuro' : 'claro'} ativado`);
+        },
+
+        applyTheme() { 
+          document.documentElement.setAttribute('data-theme', this.theme); 
+          localStorage.setItem('theme', this.theme); 
+        },
+        
+        setupInstallPrompt() {
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        this.deferredPrompt = e;
+        document.getElementById('btn-install').classList.remove('hidden');
+      });
+          window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && this.deferredPrompt) {
+              document.getElementById('btn-install').classList.remove('hidden');
+            }
+          });
+      window.addEventListener('appinstalled', () => {
+        this.showToast('App instalado com sucesso');
+        this.deferredPrompt = null;
+        document.getElementById('btn-install').classList.add('hidden');
+      });
+        },
+        
+        async promptInstall() {
+          if (!this.deferredPrompt) return;
+          this.deferredPrompt.prompt();
+          const { outcome } = await this.deferredPrompt.userChoice;
+          if (outcome === 'accepted') this.showToast('Instalação iniciada');
+          this.deferredPrompt = null;
+          document.getElementById('btn-install').classList.add('hidden');
+        },
+        
+        setActiveNav(target) {
+          document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+          const map = {
+            cal: '#nav-cal',
+            avulso: '#nav-avulso',
+            fixed: '#nav-fixed',
+            clear: '#nav-clear'
+          };
+          const el = document.querySelector(map[target]);
+          if (el) el.classList.add('active');
+        },
+
+        toggleForm(type) {
+          document.getElementById('form-panel').classList.add('hidden');
+          document.getElementById('avulso-panel').classList.add('hidden');
+          
+          if (type === 'fixed') {
+            document.getElementById('form-panel').classList.remove('hidden');
+            this.activePanel = 'fixed';
+            this.setActiveNav('fixed');
+          } else if (type === 'avulso') {
+            document.getElementById('avulso-panel').classList.remove('hidden');
+            this.activePanel = 'avulso';
+            this.setActiveNav('avulso');
+          }
+        },
+
+        addAvulso() {
+          const local = document.getElementById('avulso-local').value.trim() || (this.avulsoType === 'daily' ? 'Serviço Diário' : 'Plantão Extra');
+          const dateStr = document.getElementById('avulso-date').value;
+          const timeInput = document.getElementById('avulso-time').value;
+          const obs = document.getElementById('avulso-obs').value.trim();
+          
+          if (!dateStr) {
+            Swal.fire({ icon: 'error', title: 'Data obrigatória', text: 'Selecione uma data para o compromisso.', confirmButtonColor: '#00d4ff' });
+            return;
+          }
+          
+          const newShift = {
+            id: crypto.randomUUID(),
+            local: local,
+            date: dateStr,
+            time: timeInput,
+            color: this.avulsoType === 'daily' ? '#2ed573' : '#ff9f43',
+            type: `avulso-${this.avulsoType}`,
+            avulsoType: this.avulsoType,
+            obs: obs
+          };
+          
+          this.shifts.push(newShift);
+          this.saveShifts();
+          this.showToast(`${this.avulsoType === 'daily' ? 'Serviço diário' : 'Plantão extra'} adicionado com sucesso!`);
+          
+          document.getElementById('avulso-local').value = '';
+          document.getElementById('avulso-obs').value = '';
+          Calendar.render();
+        },
+
+        async handleCalculate() {
+          const local = document.getElementById('f-local').value.trim() || 'Plantão';
+          const startStr = document.getElementById('f-start').value;
+          const endStr = document.getElementById('f-end').value;
+          const timeInput = document.getElementById('f-time-start').value;
+          let workHrs = parseInt(document.getElementById('f-work').value);
+          let restHrs = parseInt(document.getElementById('f-rest').value);
+          
+          const startDate = new Date(startStr);
+          const endDate = new Date(endStr);
+          
+          if (startDate > endDate) {
+            await Swal.fire({ icon: 'error', title: 'Datas inválidas', text: 'A data de início não pode ser maior que a data de fim!', confirmButtonColor: '#00d4ff' });
+            return;
+          }
+          
+          if (isNaN(workHrs) || workHrs < 1) {
+            await Swal.fire({ icon: 'error', title: 'Valor inválido', text: 'A carga horária deve ser maior que 0 horas!', confirmButtonColor: '#00d4ff' });
+            return;
+          }
+          if (!Number.isFinite(restHrs) || restHrs <= 0) {
+            await Swal.fire({ icon: 'error', title: 'Valor inválido', text: 'A folga deve ser maior que 0 horas!', confirmButtonColor: '#00d4ff' });
+            return;
+          }
+          
+          const btnCalc = document.getElementById('btn-calc');
+          const originalText = btnCalc.textContent;
+          btnCalc.textContent = 'Gerando...';
+          btnCalc.classList.add('loading');
+          btnCalc.disabled = true;
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const limit = new Date(`${endStr}T23:59:59`);
+          let cursor = new Date(`${startStr}T${timeInput}`);
+          let generated = [];
+
+          // PADRÃO ALTERNADO: 12h diurno -> noite no dia seguinte -> 72h de descanso
+          // Identificado por: workHrs === 12 e folga 72h (ou 84h legado)
+          const isAlternatingPattern = (workHrs === 12 && (restHrs === 72 || restHrs === 84));
+          
+          if (isAlternatingPattern) {
+            // 12h diurno, 12h noturno no dia seguinte, 72h descanso
+            let shiftType = 'diurno'; // primeiro plantão é diurno
+            let currentCursor = new Date(cursor);
+            
+            while (currentCursor <= limit) {
+              const entryTimeLabel = currentCursor.getHours().toString().padStart(2, '0') + ':' + 
+                                    currentCursor.getMinutes().toString().padStart(2, '0');
+              const dateStr = currentCursor.getFullYear() + '-' + 
+                            String(currentCursor.getMonth() + 1).padStart(2, '0') + '-' + 
+                            String(currentCursor.getDate()).padStart(2, '0');
+              
+              const shiftLabel = shiftType === 'diurno' ? '🌞 Diurno' : '🌙 Noturno';
+              
+              generated.push({
+                id: crypto.randomUUID(),
+                local: `${local} ${shiftLabel}`,
+                date: dateStr,
+                time: entryTimeLabel,
+                color: this.selectedColor,
+                type: 'fixed'
+              });
+              
+              // Alterna o tipo para o próximo plantão
+              if (shiftType === 'diurno') {
+                // Noturno no dia seguinte (36h após início do diurno)
+                currentCursor = new Date(currentCursor.getTime() + 36 * 3600000);
+                shiftType = 'noturno';
+              } else {
+                // Após noturno: 12h plantão + 72h descanso = 84h a partir do início do noturno
+                currentCursor = new Date(currentCursor.getTime() + 84 * 3600000);
+                shiftType = 'diurno';
+              }
+            }
+          } else {
+            // LÓGICA ORIGINAL para os demais padrões (48x96, 24x72, etc)
+            while (cursor <= limit) {
+              const daysToMark = Math.ceil(workHrs / 24);
+              const entryTimeLabel = cursor.getHours().toString().padStart(2, '0') + ':' + cursor.getMinutes().toString().padStart(2, '0');
+
+              for (let i = 0; i < daysToMark; i++) {
+                let currentDay = new Date(cursor.getTime() + (i * 24 * 3600000));
+                if (currentDay <= limit) {
+                  const dateStr = currentDay.getFullYear() + '-' + String(currentDay.getMonth() + 1).padStart(2, '0') + '-' + String(currentDay.getDate()).padStart(2, '0');
+                  
+                  generated.push({
+                    id: crypto.randomUUID(),
+                    local: local,
+                    date: dateStr,
+                    time: entryTimeLabel,
+                    color: this.selectedColor,
+                    type: 'fixed'
+                  });
+                }
+              }
+              cursor = new Date(cursor.getTime() + (workHrs + restHrs) * 3600000);
+            }
+          }
+
+          this.shifts = [...this.shifts, ...generated];
+          this.saveShifts();
+          document.getElementById('form-panel').classList.add('hidden');
+          
+          let message = `${generated.length} plantão(ões) adicionado(s) com sucesso.`;
+          if (isAlternatingPattern) {
+            const diurnoStart = new Date(`${startStr}T${timeInput}`);
+            const noturnoStart = new Date(diurnoStart.getTime() + 36 * 3600000);
+            message = `⭐ PADRÃO ALTERNADO 12H ATIVADO! ⭐\n\n` +
+                      `🌞 Diurno: ${diurnoStart.toLocaleDateString()} às ${diurnoStart.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}\n` +
+                      `🌙 Noturno: ${noturnoStart.toLocaleDateString()} às ${noturnoStart.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}\n` +
+                      `⏰ Ciclo: 12h diurno → 12h noturno (dia seguinte) → 72h descanso\n` +
+                      `${generated.length} plantão(ões) gerado(s).`;
+          }
+          
+          await Swal.fire({ 
+            icon: 'success', 
+            title: isAlternatingPattern ? 'Escala Alternada Gerada!' : 'Escala gerada!', 
+            text: message, 
+            confirmButtonColor: '#00d4ff', 
+            timer: 3000, 
+            showConfirmButton: true 
+          });
+          
+          Calendar.render();
+          btnCalc.textContent = originalText;
+          btnCalc.classList.remove('loading');
+          btnCalc.disabled = false;
+        },
+
+        async deleteShift(shiftId, shiftLocal, shiftDate) {
+          const result = await Swal.fire({
+            title: 'Excluir compromisso?',
+            text: `Deseja remover "${shiftLocal}" do dia ${shiftDate}?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef476f',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sim, excluir',
+            cancelButtonText: 'Cancelar'
+          });
+          
+          if (result.isConfirmed) {
+            this.shifts = this.shifts.filter(x => x.id !== shiftId);
+            this.saveShifts();
+            Calendar.render();
+            this.showToast('Compromisso removido com sucesso');
+          }
+        },
+
+        async clearAll() {
+          if (this.shifts.length === 0) {
+            this.showToast('Nenhum compromisso para remover');
+            return;
+          }
+          
+          const result = await Swal.fire({
+            title: 'Limpar tudo?',
+            text: `Tem certeza? Isso removerá todos os ${this.shifts.length} compromisso(s) cadastrados.`,
+            icon: 'error',
+            showCancelButton: true,
+            confirmButtonColor: '#ef476f',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sim, limpar tudo',
+            cancelButtonText: 'Cancelar'
+          });
+          
+          if (result.isConfirmed) {
+            this.shifts = [];
+            this.saveShifts();
+            Calendar.render();
+            this.showToast('Todos os compromissos foram removidos');
+          }
+        },
+
+        async exportPdf() {
+          const calendarSection = document.getElementById('calendar-section');
+          if (!calendarSection) return;
+          try {
+            const canvas = await html2canvas(calendarSection, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+            const drawWidth = imgWidth * ratio;
+            const drawHeight = imgHeight * ratio;
+            const marginX = (pageWidth - drawWidth) / 2;
+            const marginY = 10;
+            pdf.addImage(imgData, 'PNG', marginX, marginY, drawWidth, drawHeight);
+            pdf.save(`plantao-${new Date().toISOString().slice(0,10)}.pdf`);
+            this.showToast('PDF exportado com sucesso');
+          } catch (err) {
+            await Swal.fire({ icon: 'error', title: 'Erro ao gerar PDF', text: 'Tente novamente.', confirmButtonColor: '#ef476f' });
+          }
+        },
+
+        exportICS() {
+          if (!this.shifts.length) {
+            this.showToast('Nenhum compromisso para exportar');
+            return;
+          }
+          const cal = new ICS();
+          this.shifts.forEach(s => {
+            const [year, month, day] = s.date.split('-').map(Number);
+            const [hh = 0, mm = 0] = (s.time || '00:00').split(':').map(Number);
+            const start = new Date(year, month - 1, day, hh, mm);
+            // default duration 1h for avulso; for fixed we keep 12h window
+            const durationHrs = s.type === 'fixed' ? 12 : 1;
+            const end = new Date(start.getTime() + durationHrs * 3600000);
+            cal.addEvent(
+              s.local || 'Plantão',
+              s.obs || (s.type === 'fixed' ? 'Escala fixa' : 'Compromisso'),
+              s.local || '',
+              start,
+              end
+            );
+          });
+          const blob = new Blob([cal.build()], { type: 'text/calendar;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `plantao-${new Date().toISOString().slice(0,10)}.ics`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          this.showToast('Arquivo ICS exportado');
+        }
+      };
+
+      const Calendar = {
+        view: new Date(),
+        
+        render() {
+          const y = this.view.getFullYear(), m = this.view.getMonth();
+          document.getElementById('cal-title').innerText = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(this.view);
+          
+          const first = new Date(y, m, 1).getDay();
+          const last = new Date(y, m + 1, 0).getDate();
+          
+          const shiftsByDate = new Map();
+          App.shifts.forEach(shift => {
+            if (!shiftsByDate.has(shift.date)) {
+              shiftsByDate.set(shift.date, []);
+            }
+            shiftsByDate.get(shift.date).push(shift);
+          });
+          
+          let html = '';
+          
+          for (let i = 0; i < first; i++) {
+            html += '<div class="cal-cell" style="opacity:0.3"></div>';
+          }
+          
+          for (let d = 1; d <= last; d++) {
+            const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const dayShifts = shiftsByDate.get(dateStr) || [];
+            
+            html += `<div class="cal-cell">
+              <div class="day-num">${d}</div>`;
+              
+            if (dayShifts.length === 0) {
+              html += `<div class="empty-day">—</div>`;
+            } else {
+              dayShifts.forEach(s => {
+                let typeClass = '';
+                let typeIcon = '';
+                
+                if (s.type === 'fixed') {
+                  typeIcon = '<i class="fa-solid fa-calendar-week"></i> ';
+                } else if (s.type === 'avulso-daily') {
+                  typeClass = 'avulso-daily';
+                  typeIcon = '<i class="fa-solid fa-sun"></i> ';
+                } else if (s.type === 'avulso-extra') {
+                  typeClass = 'avulso-extra';
+                  typeIcon = '<i class="fa-solid fa-plus-circle"></i> ';
+                }
+                
+                const escapeHtml = (str = '') => str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'" :'&#39;'}[m]));
+                const safeLocal = escapeHtml(s.local);
+                const safeObs = escapeHtml((s.obs || '').substring(0, 20));
+                const obsText = s.obs ? `<span class="shift-info">${safeObs}</span>` : `<span class="shift-info">${s.time}</span>`;
+                
+                html += `
+                  <div class="shift-chip ${typeClass}" 
+                       style="background:${s.color}" 
+                       onclick="App.deleteShift('${s.id}', '${s.local.replace(/'/g, "\\'")}', '${s.date}')"
+                       onkeypress="if(event.key === 'Enter') App.deleteShift('${s.id}', '${s.local.replace(/'/g, "\\'")}', '${s.date}')"
+                       tabindex="0"
+                       role="button"
+                       aria-label="Excluir compromisso: ${safeLocal}">
+                    ${typeIcon} ${safeLocal}
+                    ${obsText}
+                  </div>`;
+              });
+            }
+            
+            html += `</div>`;
+          }
+          
+          document.getElementById('cal-grid').innerHTML = html;
+        },
+        
+        prev() { 
+          this.view.setMonth(this.view.getMonth() - 1); 
+          this.render(); 
+        },
+        
+        next() { 
+          this.view.setMonth(this.view.getMonth() + 1); 
+          this.render(); 
+        }
+      };
+
+      window.App = App;
+      window.Calendar = Calendar;
+      async function registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+          const reg = await navigator.serviceWorker.register('./sw.js');
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                Swal.fire({
+                  title: 'Atualização disponível',
+                  text: 'Uma nova versão foi instalada. Atualizar agora?',
+                  icon: 'info',
+                  showCancelButton: true,
+                  confirmButtonColor: '#00d4ff',
+                  cancelButtonColor: '#6b7280',
+                  confirmButtonText: 'Atualizar'
+                }).then(result => {
+                  if (result.isConfirmed) {
+                    window.location.reload();
+                  }
+                });
+              }
+            });
+          });
+        } catch (err) {
+          console.error('SW registration failed', err);
+        }
+      }
+
+      window.onload = () => {
+        App.init();
+        registerServiceWorker();
+      };
+    })();
+  </script>
+</body>
+</html>
