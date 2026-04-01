@@ -1397,14 +1397,25 @@
         },
 
         async deleteShift(shiftId, shiftLocal, shiftDate) {
+          const target = this.shifts.find(s => s.id === shiftId);
+          const sameGroup = target
+            ? this.shifts.filter(s => s.type === target.type && s.local === target.local && s.time === target.time)
+            : [];
+          const showBulk = sameGroup.length > 1;
+
           const result = await Swal.fire({
             title: 'Excluir compromisso?',
-            text: `Deseja remover "${shiftLocal}" do dia ${shiftDate}?`,
+            text: showBulk
+              ? `Remover só "${shiftLocal}" em ${shiftDate} ou todos (${sameGroup.length}) dessa escala/horário?`
+              : `Deseja remover "${shiftLocal}" do dia ${shiftDate}?`,
             icon: 'warning',
             showCancelButton: true,
+            showDenyButton: showBulk,
             confirmButtonColor: '#ef476f',
             cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Sim, excluir',
+            denyButtonColor: '#ef476f',
+            confirmButtonText: showBulk ? 'Excluir só este' : 'Sim, excluir',
+            denyButtonText: showBulk ? 'Excluir todos' : undefined,
             cancelButtonText: 'Cancelar'
           });
           
@@ -1413,6 +1424,13 @@
             this.saveShifts();
             Calendar.render();
             this.showToast('Compromisso removido com sucesso');
+            this.scheduleNextNotification();
+          } else if (result.isDenied && showBulk) {
+            const toRemove = new Set(sameGroup.map(s => s.id));
+            this.shifts = this.shifts.filter(s => !toRemove.has(s.id));
+            this.saveShifts();
+            Calendar.render();
+            this.showToast(`Removidos ${sameGroup.length} compromissos dessa escala/horário`);
             this.scheduleNextNotification();
           }
         },
