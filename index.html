@@ -636,6 +636,17 @@
       transform: translateY(-1px);
     }
 
+    .custom-notify {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .custom-notify input {
+      flex: 1;
+    }
+
     .local-note {
       color: var(--muted);
       font-size: 12px;
@@ -865,7 +876,12 @@
             <option value="60">1 hora</option>
             <option value="360">6 horas</option>
             <option value="1440">24 horas</option>
+            <option value="custom">Personalizado</option>
           </select>
+          <div id="custom-notify-row" class="custom-notify hidden">
+            <input type="number" id="notify-custom" min="1" max="10080" placeholder="Minutos (ex: 45)" />
+            <button class="btn-ghost" style="padding:10px;" onclick="App.setCustomNotify()">Salvar</button>
+          </div>
         </div>
         <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
           <button class="btn-ghost" id="btn-notify" onclick="App.requestNotifications()"><i class="fa-solid fa-bell"></i> Ativar lembretes</button>
@@ -1045,6 +1061,18 @@
           document.getElementById('notify-lead').value = String(this.notifyLeadMinutes);
           const status = document.getElementById('notify-status');
           const btn = document.getElementById('btn-notify');
+          const customRow = document.getElementById('custom-notify-row');
+          const customInput = document.getElementById('notify-custom');
+
+          const preset = ['10','60','360','1440'];
+          if (!preset.includes(String(this.notifyLeadMinutes))) {
+            document.getElementById('notify-lead').value = 'custom';
+            customInput.value = this.notifyLeadMinutes;
+            customRow.classList.remove('hidden');
+          } else {
+            customRow.classList.add('hidden');
+          }
+
           if (!('Notification' in window)) {
             status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Não suportado';
             btn.disabled = true;
@@ -1068,9 +1096,32 @@
 
         changeNotifyLead(event) {
           const val = parseInt(event.target.value, 10) || 60;
+          const customRow = document.getElementById('custom-notify-row');
+          if (event.target.value === 'custom') {
+            customRow.classList.remove('hidden');
+            document.getElementById('notify-custom').focus();
+            return;
+          } else {
+            customRow.classList.add('hidden');
+          }
           this.notifyLeadMinutes = val;
           localStorage.setItem('notifyLeadMinutes', String(val));
           this.scheduleNextNotification();
+        },
+
+        setCustomNotify() {
+          const input = document.getElementById('notify-custom');
+          let val = parseInt(input.value, 10);
+          if (isNaN(val) || val < 1) {
+            this.showToast('Informe minutos válidos (>=1)', true);
+            return;
+          }
+          if (val > 10080) val = 10080; // até 7 dias
+          this.notifyLeadMinutes = val;
+          localStorage.setItem('notifyLeadMinutes', String(val));
+          document.getElementById('notify-lead').value = 'custom';
+          this.scheduleNextNotification();
+          this.showToast(`Lembretes: ${val} min antes`);
         },
 
         async requestNotifications() {
