@@ -12,6 +12,11 @@ Agenda e escala de plantões offline-first, instalável como app (PWA) e pronta 
 - Tema claro/escuro; paleta de cores nos turnos.
 - PWA install prompt + offline com fallback `offline.html`.
 - Banner avisando que os dados são locais (localStorage).
+- Lembretes configuráveis em hh:mm antes do plantão, com notificações (vibração/renotify) e status de permissão.
+- Exclusão em série: ao apagar um evento, opção de remover toda a série (mesmo local/horário/tipo).
+- Desfazer exclusão por alguns segundos.
+- Autocomplete de locais usado nos cadastros.
+- Cabeçalho do calendário mostra total do mês; eventos do dia são ordenados por horário.
 
 ## Estrutura
 - `index.html` — UI + lógica.
