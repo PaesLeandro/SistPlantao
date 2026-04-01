@@ -890,18 +890,8 @@
       </div>
       <div class="notify-row">
         <div>
-          <label class="field-label" for="notify-lead">Avisar com</label>
-          <select id="notify-lead" onchange="App.changeNotifyLead(event)">
-            <option value="10">10 minutos</option>
-            <option value="60">1 hora</option>
-            <option value="360">6 horas</option>
-            <option value="1440">24 horas</option>
-            <option value="custom">Personalizado</option>
-          </select>
-          <div id="custom-notify-row" class="custom-notify hidden">
-            <input type="number" id="notify-custom" min="1" max="10080" placeholder="Minutos (ex: 45)" />
-            <button class="btn-ghost" style="padding:10px;" onclick="App.setCustomNotify()">Salvar</button>
-          </div>
+          <label class="field-label" for="notify-time">Avisar com (hh:mm antes)</label>
+          <input type="time" id="notify-time" step="60" value="01:00" onchange="App.changeNotifyTime(event)" />
         </div>
         <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
           <button class="btn-ghost" id="btn-notify" onclick="App.requestNotifications()"><i class="fa-solid fa-bell"></i> Ativar lembretes</button>
@@ -1078,27 +1068,12 @@
         },
 
         syncNotifyUI() {
-          document.getElementById('notify-lead').value = String(this.notifyLeadMinutes);
           const status = document.getElementById('notify-status');
           const btn = document.getElementById('btn-notify');
-          const customRow = document.getElementById('custom-notify-row');
-          const customInput = document.getElementById('notify-custom');
-
-          const preset = ['10','60','360','1440'];
-          if (!preset.includes(String(this.notifyLeadMinutes))) {
-            document.getElementById('notify-lead').value = 'custom';
-            customInput.value = this.notifyLeadMinutes;
-            customRow.classList.remove('hidden');
-          } else {
-            customRow.classList.add('hidden');
-          }
-
-          customInput.onkeydown = (e) => {
-            if (e.key === 'Enter') this.setCustomNotify();
-          };
-          customInput.onblur = () => {
-            if (customInput.value.trim()) this.setCustomNotify();
-          };
+          const timeInput = document.getElementById('notify-time');
+          const h = Math.floor(this.notifyLeadMinutes / 60);
+          const m = this.notifyLeadMinutes % 60;
+          timeInput.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 
           if (!('Notification' in window)) {
             status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Não suportado';
@@ -1121,34 +1096,15 @@
           }
         },
 
-        changeNotifyLead(event) {
-          const val = parseInt(event.target.value, 10) || 60;
-          const customRow = document.getElementById('custom-notify-row');
-          if (event.target.value === 'custom') {
-            customRow.classList.remove('hidden');
-            document.getElementById('notify-custom').focus();
-            return;
-          } else {
-            customRow.classList.add('hidden');
-          }
-          this.notifyLeadMinutes = val;
-          localStorage.setItem('notifyLeadMinutes', String(val));
+        changeNotifyTime(event) {
+          const [hh, mm] = (event.target.value || '01:00').split(':').map(Number);
+          let minutes = (isNaN(hh) ? 0 : hh) * 60 + (isNaN(mm) ? 0 : mm);
+          if (minutes < 1) minutes = 1;
+          if (minutes > 10080) minutes = 10080; // até 7 dias
+          this.notifyLeadMinutes = minutes;
+          localStorage.setItem('notifyLeadMinutes', String(minutes));
           this.scheduleNextNotification();
-        },
-
-        setCustomNotify() {
-          const input = document.getElementById('notify-custom');
-          let val = parseInt(input.value, 10);
-          if (isNaN(val) || val < 1) {
-            this.showToast('Informe minutos válidos (>=1)', true);
-            return;
-          }
-          if (val > 10080) val = 10080; // até 7 dias
-          this.notifyLeadMinutes = val;
-          localStorage.setItem('notifyLeadMinutes', String(val));
-          document.getElementById('notify-lead').value = 'custom';
-          this.scheduleNextNotification();
-          this.showToast(`Lembretes: ${val} min antes`);
+          this.showToast(`Lembretes: ${minutes} min antes`);
         },
 
         async requestNotifications() {
