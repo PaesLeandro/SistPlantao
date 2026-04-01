@@ -1147,10 +1147,14 @@
                 tag: `shift-${shift.id}`,
                 data: { url: location.origin },
                 icon: '/icons/icon-192.png',
-                badge: '/icons/icon-192.png'
+                badge: '/icons/icon-192.png',
+                renotify: true,
+                requireInteraction: false,
+                silent: false,
+                vibrate: [200, 100, 200]
               });
             } else if ('Notification' in window) {
-              new Notification('Lembrete de plantão', { body });
+              new Notification('Lembrete de plantão', { body, silent: false, vibrate: [200, 100, 200] });
             }
           } catch (err) {
             console.error('Notificação falhou', err);
