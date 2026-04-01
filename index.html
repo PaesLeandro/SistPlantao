@@ -667,6 +667,32 @@
       min-width: 90px;
     }
 
+    .undo-bar {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow);
+      z-index: 1500;
+    }
+
+    .undo-bar button {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
     .local-note {
       color: var(--muted);
       font-size: 12px;
@@ -791,12 +817,13 @@
   </header>
 
   <main>
+    <datalist id="locations-list"></datalist>
     <!-- Formulário Principal - Escala Fixa -->
     <div id="form-panel" class="glass-card hidden">
       <div class="section-title"><i class="fa-solid fa-calendar-week"></i> ESCALA FIXA</div>
       
       <label class="field-label" for="f-local">Unidade</label>
-      <input type="text" id="f-local" placeholder="Ex: Hospital Central" />
+      <input type="text" id="f-local" list="locations-list" placeholder="Ex: Hospital Central" />
 
       <label class="field-label">Cor</label>
       <div class="color-row" id="color-picker"></div>
@@ -843,7 +870,7 @@
       </div>
 
       <label class="field-label" for="avulso-local">Título / Unidade</label>
-      <input type="text" id="avulso-local" placeholder="Ex: UBS Central / Cobertura de Férias" />
+      <input type="text" id="avulso-local" list="locations-list" placeholder="Ex: UBS Central / Cobertura de Férias" />
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
         <div>
@@ -922,6 +949,11 @@
     </div>
   </main>
 
+  <div id="undo-bar" class="undo-bar hidden">
+    <span id="undo-text"></span>
+    <button onclick="App.undoDelete()">Desfazer</button>
+  </div>
+
     <nav class="nav-bar">
     <button id="nav-cal" class="nav-btn active" onclick="App.setActiveNav('cal'); Calendar.render()" aria-label="Calendário" data-tooltip="Calendário"><i class="fa-solid fa-calendar-alt"></i></button>
     <button id="nav-avulso" class="nav-btn" onclick="App.toggleForm('avulso')" aria-label="Compromisso Avulso" data-tooltip="Compromisso Avulso"><i class="fa-solid fa-plus-circle"></i></button>
@@ -961,10 +993,12 @@
         loadShifts() {
           const stored = localStorage.getItem(STORAGE_KEY);
           this.shifts = stored ? JSON.parse(stored) : [];
+          this.updateLocationSuggestions();
         },
 
         saveShifts() {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.shifts));
+          this.updateLocationSuggestions();
         },
 
         setDefaultDates() {
@@ -1007,6 +1041,8 @@
           toast.className = 'toast-success';
           toast.style.background = isError ? '#ef476f' : '#2ed573';
           toast.textContent = message;
+          toast.setAttribute('role', 'alert');
+          toast.setAttribute('aria-live', 'polite');
           document.body.appendChild(toast);
           setTimeout(() => toast.remove(), 3000);
         },
@@ -1016,6 +1052,13 @@
             `<div class="color-dot ${i === 0 ? 'active' : ''}" style="background:${c}" onclick="App.pickColor('${c}', event)" tabindex="0" role="button" aria-label="Cor ${c}" data-tooltip="Selecionar cor"></div>`
           ).join('');
           document.getElementById('color-picker').innerHTML = pickerHtml;
+        },
+
+        updateLocationSuggestions() {
+          const uniques = Array.from(new Set(this.shifts.map(s => s.local).filter(Boolean)));
+          const data = document.getElementById('locations-list');
+          if (!data) return;
+          data.innerHTML = uniques.map(u => `<option value="${u}"></option>`).join('');
         },
 
         pickColor(c, e) {
@@ -1074,6 +1117,8 @@
           const h = Math.floor(this.notifyLeadMinutes / 60);
           const m = this.notifyLeadMinutes % 60;
           timeInput.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+          const notifyLabel = document.getElementById('notify-label');
+          if (notifyLabel) notifyLabel.textContent = `Lembrete atual: ${this.notifyLeadMinutes} min antes`;
 
           if (!('Notification' in window)) {
             status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Não suportado';
@@ -1105,6 +1150,28 @@
           localStorage.setItem('notifyLeadMinutes', String(minutes));
           this.scheduleNextNotification();
           this.showToast(`Lembretes: ${minutes} min antes`);
+        },
+
+        recordDeletion(deletedList) {
+          this.lastDeleted = deletedList;
+          const bar = document.getElementById('undo-bar');
+          const text = document.getElementById('undo-text');
+          if (text) text.textContent = `${deletedList.length} compromisso(s) removido(s)`;
+          bar.classList.remove('hidden');
+          clearTimeout(this.undoTimer);
+          this.undoTimer = setTimeout(() => bar.classList.add('hidden'), 6000);
+        },
+
+        undoDelete() {
+          const bar = document.getElementById('undo-bar');
+          if (!this.lastDeleted || !this.lastDeleted.length) return;
+          this.shifts = [...this.shifts, ...this.lastDeleted];
+          this.saveShifts();
+          Calendar.render();
+          this.scheduleNextNotification();
+          bar.classList.add('hidden');
+          this.showToast('Compromissos restaurados');
+          this.lastDeleted = [];
         },
 
         async requestNotifications() {
@@ -1420,18 +1487,22 @@
           });
           
           if (result.isConfirmed) {
+            const removed = this.shifts.filter(x => x.id === shiftId);
             this.shifts = this.shifts.filter(x => x.id !== shiftId);
             this.saveShifts();
             Calendar.render();
             this.showToast('Compromisso removido com sucesso');
             this.scheduleNextNotification();
+            if (removed.length) this.recordDeletion(removed);
           } else if (result.isDenied && showBulk) {
             const toRemove = new Set(sameGroup.map(s => s.id));
+            const removed = this.shifts.filter(s => toRemove.has(s.id));
             this.shifts = this.shifts.filter(s => !toRemove.has(s.id));
             this.saveShifts();
             Calendar.render();
             this.showToast(`Removidos ${sameGroup.length} compromissos dessa escala/horário`);
             this.scheduleNextNotification();
+            if (removed.length) this.recordDeletion(removed);
           }
         },
 
@@ -1570,6 +1641,10 @@
             shiftsByDate.get(shift.date).push(shift);
           });
           
+          // badge de total no mês
+          const monthTotal = App.shifts.filter(s => s.date && s.date.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).length;
+          document.getElementById('cal-title').innerText = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(this.view) + ` · ${monthTotal}`;
+          
           let html = '';
           
           for (let i = 0; i < first; i++) {
@@ -1578,7 +1653,7 @@
           
           for (let d = 1; d <= last; d++) {
             const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const dayShifts = shiftsByDate.get(dateStr) || [];
+            const dayShifts = (shiftsByDate.get(dateStr) || []).slice().sort((a,b) => (a.time||'').localeCompare(b.time||''));
             
             html += `<div class="cal-cell">
               <div class="day-num">${d}</div>`;
