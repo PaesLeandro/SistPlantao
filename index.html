@@ -650,6 +650,21 @@
 
     .custom-notify input {
       flex: 1;
+      padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .custom-notify input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 4px 12px rgba(0, 212, 255, 0.1);
+    }
+
+    .custom-notify button {
+      min-width: 90px;
     }
 
     .local-note {
