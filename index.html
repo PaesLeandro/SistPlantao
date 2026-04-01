@@ -1073,6 +1073,13 @@
             customRow.classList.add('hidden');
           }
 
+          customInput.onkeydown = (e) => {
+            if (e.key === 'Enter') this.setCustomNotify();
+          };
+          customInput.onblur = () => {
+            if (customInput.value.trim()) this.setCustomNotify();
+          };
+
           if (!('Notification' in window)) {
             status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Não suportado';
             btn.disabled = true;
