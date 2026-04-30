@@ -55,7 +55,8 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding-bottom: 120px;
+      padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+      padding-top: env(safe-area-inset-top, 0px);
       overflow-x: hidden;
       transition: background 0.3s;
     }
@@ -88,14 +89,14 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      padding: 16px;
+      padding: 18px 18px 16px;
+      min-height: 66px;
       background: rgba(3, 7, 13, 0.7);
       backdrop-filter: blur(15px);
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      position: relative;
     }
 
     header::after {
@@ -141,7 +142,23 @@
     main {
       max-width: 500px;
       margin: 0 auto;
-      padding: 12px;
+      padding: 16px 12px 24px;
+    }
+
+    .theme-toggle {
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 42px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: var(--shadow);
     }
 
     .glass-card {
@@ -498,7 +515,7 @@
 
     .nav-bar {
       position: fixed;
-      bottom: 20px;
+      bottom: calc(22px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
       background: rgba(16, 24, 39, 0.95);
@@ -654,7 +671,7 @@
 
     .undo-bar {
       position: fixed;
-      bottom: 90px;
+      bottom: calc(96px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
       background: var(--surface);
@@ -703,7 +720,7 @@
 
     .toast-success {
       position: fixed;
-      bottom: 100px;
+      bottom: calc(106px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
       background: var(--success);
@@ -799,7 +816,7 @@
 
   <header>
     <div class="logo"><i class="fa-solid fa-notes-medical" style="color:var(--accent)"></i> SIST<span>PLANTÃO</span></div>
-    <button onclick="App.toggleTheme()" aria-label="Alternar tema" data-tooltip="Alternar tema" style="background:none; border:none; color:var(--text); font-size: 18px; cursor: pointer;"><i class="fa-solid fa-circle-half-stroke"></i></button>
+    <button class="theme-toggle" onclick="App.toggleTheme()" aria-label="Alternar tema" data-tooltip="Alternar tema"><i class="fa-solid fa-circle-half-stroke"></i></button>
   </header>
 
   <main>
@@ -897,8 +914,8 @@
       <div class="info-banner">
         <i class="fa-solid fa-circle-info"></i>
         <div>
-          Ative lembretes locais para ser avisado antes do plantão enquanto o app estiver ativo ou em segundo plano recente.
-          <div class="local-note">Permissão do navegador é necessária. Se negar, reative em: cadeado do navegador → Permissões → Notificações.</div>
+          Ative lembretes locais para ser avisado antes do plantão.
+          <div class="local-note" id="notify-note">No app Android, os avisos são agendados pelo sistema. No navegador, dependem da permissão de notificações.</div>
         </div>
       </div>
       <div class="notify-row">
@@ -986,6 +1003,7 @@
         saveShifts() {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.shifts));
           this.updateLocationSuggestions();
+          this.syncNativeReminders();
         },
 
         setDefaultDates() {
@@ -1101,11 +1119,20 @@
           const status = document.getElementById('notify-status');
           const btn = document.getElementById('btn-notify');
           const timeInput = document.getElementById('notify-time');
+          const note = document.getElementById('notify-note');
           const h = Math.floor(this.notifyLeadMinutes / 60);
           const m = this.notifyLeadMinutes % 60;
           timeInput.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
           const notifyLabel = document.getElementById('notify-label');
           if (notifyLabel) notifyLabel.textContent = `Lembrete atual: ${this.notifyLeadMinutes} min antes`;
+
+          if (this.isNativeAndroid()) {
+            status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Nativo ativo';
+            btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sincronizar';
+            btn.disabled = false;
+            if (note) note.textContent = 'Avisos agendados pelo Android. Mantenha a permissão de notificações ativada nas configurações do app.';
+            return;
+          }
 
           if (!('Notification' in window)) {
             status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Não suportado';
@@ -1135,6 +1162,7 @@
           if (minutes > 10080) minutes = 10080; // até 7 dias
           this.notifyLeadMinutes = minutes;
           localStorage.setItem('notifyLeadMinutes', String(minutes));
+          this.syncNativeReminders();
           this.scheduleNextNotification();
           this.showToast(`Lembretes: ${minutes} min antes`);
         },
@@ -1162,6 +1190,12 @@
         },
 
         async requestNotifications() {
+          if (this.isNativeAndroid()) {
+            this.syncNativeReminders();
+            this.syncNotifyUI();
+            this.showToast('Lembretes sincronizados no Android');
+            return;
+          }
           if (!('Notification' in window)) {
             this.showToast('Navegador não suporta notificações', true);
             return;
@@ -1217,6 +1251,10 @@
             clearTimeout(this.notificationTimer);
             this.notificationTimer = null;
           }
+          if (this.isNativeAndroid()) {
+            this.syncNativeReminders();
+            return;
+          }
           if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
           const next = this.getNextShift();
@@ -1244,6 +1282,19 @@
           document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') this.scheduleNextNotification();
           });
+        },
+
+        isNativeAndroid() {
+          return !!(window.AndroidReminder && typeof window.AndroidReminder.sync === 'function');
+        },
+
+        syncNativeReminders() {
+          if (!this.isNativeAndroid()) return;
+          try {
+            window.AndroidReminder.sync(JSON.stringify(this.shifts), String(this.notifyLeadMinutes));
+          } catch (err) {
+            console.error('Sincronização nativa falhou', err);
+          }
         },
 
         getNotifyKey(shift) {
