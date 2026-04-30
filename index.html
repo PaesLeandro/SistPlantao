@@ -462,21 +462,6 @@
       background: linear-gradient(135deg, var(--accent-secondary), #ff6b35);
     }
 
-    .shift-chip::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: left 0.5s;
-    }
-
-    .shift-chip:hover::before {
-      left: 100%;
-    }
-
     .shift-chip:hover {
       transform: translateY(-1px);
       filter: brightness(1.1);
@@ -692,6 +677,7 @@
       font-weight: 700;
       cursor: pointer;
     }
+
 
     .local-note {
       color: var(--muted);
@@ -911,7 +897,7 @@
       <div class="info-banner">
         <i class="fa-solid fa-circle-info"></i>
         <div>
-          Ative lembretes locais para ser avisado antes do plantão. Avisos funcionam até 24h antes.
+          Ative lembretes locais para ser avisado antes do plantão enquanto o app estiver ativo ou em segundo plano recente.
           <div class="local-note">Permissão do navegador é necessária. Se negar, reative em: cadeado do navegador → Permissões → Notificações.</div>
         </div>
       </div>
@@ -931,7 +917,7 @@
     <div id="calendar-section">
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding: 0 5px;">
         <button onclick="Calendar.prev()" aria-label="Mês anterior" data-tooltip="Mês anterior" style="background:none; border:none; color:var(--muted); cursor: pointer; padding: 10px;"><i class="fa-solid fa-chevron-left"></i></button>
-        <div id="cal-title" style="font-weight: 800; font-size: 15px; text-transform: capitalize;"></div>
+        <div id="cal-title" style="font-weight: 800; font-size: 15px; text-transform: capitalize;" aria-live="polite"></div>
         <button onclick="Calendar.next()" aria-label="Próximo mês" data-tooltip="Próximo mês" style="background:none; border:none; color:var(--muted); cursor: pointer; padding: 10px;"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
 
@@ -976,6 +962,7 @@
         notificationTimer: null,
         notifyLeadMinutes: parseInt(localStorage.getItem('notifyLeadMinutes') || '60', 10),
         notifyInterval: null,
+        notifiedKeys: JSON.parse(localStorage.getItem('notifiedKeys') || '{}'),
 
         init() {
           this.loadShifts();
@@ -1128,8 +1115,8 @@
           const perm = Notification.permission;
           if (perm === 'granted') {
             status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Ativado';
-            btn.textContent = 'Lembretes ativos';
-            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-bell"></i> Testar aviso';
+            btn.disabled = false;
           } else if (perm === 'denied') {
             status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Bloqueado';
             btn.textContent = 'Permissão negada';
@@ -1179,10 +1166,27 @@
             this.showToast('Navegador não suporta notificações', true);
             return;
           }
+          if (Notification.permission === 'granted') {
+            await this.fireNotification({
+              id: 'test',
+              local: 'Teste de lembrete',
+              date: new Date().toISOString().slice(0, 10),
+              time: new Date().toTimeString().slice(0, 5)
+            }, true);
+            this.showToast('Aviso de teste enviado');
+            return;
+          }
           const perm = await Notification.requestPermission();
           this.syncNotifyUI();
           if (perm === 'granted') {
+            await this.ensureServiceWorkerReady();
             this.scheduleNextNotification();
+            await this.fireNotification({
+              id: 'enabled',
+              local: 'Lembretes ativados',
+              date: new Date().toISOString().slice(0, 10),
+              time: new Date().toTimeString().slice(0, 5)
+            }, true);
             this.showToast('Lembretes ativados');
           } else {
             this.showToast('Permissão não concedida', true);
@@ -1221,8 +1225,11 @@
           const leadMs = this.notifyLeadMinutes * 60 * 1000;
           const fireTime = next.time - leadMs;
           const now = Date.now();
+          const notifyKey = this.getNotifyKey(next.shift);
+          if (this.notifiedKeys[notifyKey]) return;
           let delay = fireTime - now;
-          if (delay < 0) delay = 0;
+          if (delay < 0 && next.time > now) delay = 0;
+          if (delay < 0) return;
 
           // Cap para não estourar setTimeout
           const maxDelay = 2147483000; // ~24.8 dias
@@ -1234,21 +1241,48 @@
         startNotifyHeartbeat() {
           if (this.notifyInterval) clearInterval(this.notifyInterval);
           this.notifyInterval = setInterval(() => this.scheduleNextNotification(), 15 * 60 * 1000);
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') this.scheduleNextNotification();
+          });
         },
 
-        async fireNotification(shift) {
+        getNotifyKey(shift) {
+          return `${shift.id || shift.date}-${shift.date}-${shift.time}-${this.notifyLeadMinutes}`;
+        },
+
+        saveNotifiedKeys() {
+          const now = Date.now();
+          Object.keys(this.notifiedKeys).forEach(key => {
+            if (now - this.notifiedKeys[key] > 45 * 24 * 60 * 60 * 1000) delete this.notifiedKeys[key];
+          });
+          localStorage.setItem('notifiedKeys', JSON.stringify(this.notifiedKeys));
+        },
+
+        async ensureServiceWorkerReady() {
+          if (!('serviceWorker' in navigator)) return null;
           try {
-            const reg = await navigator.serviceWorker.getRegistration();
+            return await navigator.serviceWorker.ready;
+          } catch (err) {
+            console.error('Service worker indisponível para notificação', err);
+            return null;
+          }
+        },
+
+        async fireNotification(shift, force = false) {
+          try {
+            const notifyKey = this.getNotifyKey(shift);
+            if (!force && this.notifiedKeys[notifyKey]) return;
+            const reg = await this.ensureServiceWorkerReady();
             const dt = this.getShiftDateTime(shift);
             const when = dt ? dt.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
             const body = `${shift.local || 'Compromisso'} • ${when}`;
             if (reg && reg.showNotification) {
-              reg.showNotification('Lembrete de plantão', {
+              await reg.showNotification('Lembrete de plantão', {
                 body,
                 tag: `shift-${shift.id}`,
-                data: { url: location.origin },
-                icon: '/icons/icon-192.png',
-                badge: '/icons/icon-192.png',
+                data: { url: location.href },
+                icon: './icons/icon-192.png',
+                badge: './icons/icon-192.png',
                 renotify: true,
                 requireInteraction: false,
                 silent: false,
@@ -1256,6 +1290,10 @@
               });
             } else if ('Notification' in window) {
               new Notification('Lembrete de plantão', { body, silent: false, vibrate: [200, 100, 200] });
+            }
+            if (!force) {
+              this.notifiedKeys[notifyKey] = Date.now();
+              this.saveNotifiedKeys();
             }
           } catch (err) {
             console.error('Notificação falhou', err);
@@ -1628,11 +1666,8 @@
         
         render() {
           const y = this.view.getFullYear(), m = this.view.getMonth();
-          document.getElementById('cal-title').innerText = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(this.view);
-          
           const first = new Date(y, m, 1).getDay();
           const last = new Date(y, m + 1, 0).getDate();
-          
           const shiftsByDate = new Map();
           App.shifts.forEach(shift => {
             if (!shiftsByDate.has(shift.date)) {
@@ -1641,9 +1676,16 @@
             shiftsByDate.get(shift.date).push(shift);
           });
           
-          // badge de total no mês
-          const monthTotal = App.shifts.filter(s => s.date && s.date.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).length;
+          const monthPrefix = `${y}-${String(m+1).padStart(2,'0')}`;
+          const monthTotal = App.shifts.filter(s => s.date && s.date.startsWith(monthPrefix)).length;
           document.getElementById('cal-title').innerText = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(this.view) + ` · ${monthTotal}`;
+
+          // séries para indicar 🔁
+          const seriesCount = new Map();
+          App.shifts.forEach(s => {
+            const key = `${s.type}|${s.local}|${s.time}`;
+            seriesCount.set(key, (seriesCount.get(key) || 0) + 1);
+          });
           
           let html = '';
           
@@ -1679,6 +1721,8 @@
                 const safeLocal = escapeHtml(s.local);
                 const safeObs = escapeHtml((s.obs || '').substring(0, 20));
                 const obsText = s.obs ? `<span class="shift-info">${safeObs}</span>` : `<span class="shift-info">${s.time}</span>`;
+                const key = `${s.type}|${s.local}|${s.time}`;
+                const seriesBadge = seriesCount.get(key) > 1 ? ' <span class="badge-type">🔁</span>' : '';
                 
                 html += `
                   <div class="shift-chip ${typeClass}" 
@@ -1688,7 +1732,7 @@
                        tabindex="0"
                        role="button"
                        aria-label="Excluir compromisso: ${safeLocal}">
-                    ${typeIcon} ${safeLocal}
+                    ${typeIcon} ${safeLocal}${seriesBadge}
                     ${obsText}
                   </div>`;
               });

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'plantao-pro-v36-cache-v7';
+const CACHE_NAME = 'plantao-pro-v36-cache-v8';
 const OFFLINE_PAGE = './offline.html';
 const ASSETS = [
   './',
@@ -53,12 +53,14 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = event.notification.data?.url || self.location.origin;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (const client of windowClients) {
-        if ('focus' in client) return client.focus();
+        if (client.url === targetUrl && 'focus' in client) return client.focus();
       }
-      if (clients.openWindow) return clients.openWindow('/');
+      if (windowClients.length && 'focus' in windowClients[0]) return windowClients[0].focus();
+      if (clients.openWindow) return clients.openWindow(targetUrl);
     })
   );
 });
