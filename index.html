@@ -1192,8 +1192,13 @@
         async requestNotifications() {
           if (this.isNativeAndroid()) {
             this.syncNativeReminders();
+            try {
+              if (typeof window.AndroidReminder.test === 'function') window.AndroidReminder.test();
+            } catch (err) {
+              console.error('Teste nativo falhou', err);
+            }
             this.syncNotifyUI();
-            this.showToast('Lembretes sincronizados no Android');
+            this.showToast('Teste enviado e lembretes sincronizados');
             return;
           }
           if (!('Notification' in window)) {

@@ -94,5 +94,14 @@ public class LauncherActivity extends Activity {
             }
             AlarmScheduler.scheduleFromJson(LauncherActivity.this, shiftsJson, lead);
         }
+
+        @JavascriptInterface
+        public void test() {
+            NotificationHelper.show(
+                    LauncherActivity.this,
+                    "Teste de lembrete",
+                    "Som e vibracao das notificacoes do SistPlantao"
+            );
+        }
     }
 }

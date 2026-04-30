@@ -7,8 +7,12 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 
+import android.app.Notification;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -26,6 +30,14 @@ public final class NotificationHelper {
                 NotificationManager.IMPORTANCE_HIGH
         );
         channel.setDescription("Avisos locais antes dos plantoes cadastrados");
+        channel.enableVibration(true);
+        channel.setVibrationPattern(new long[]{0, 250, 120, 250});
+        Uri sound = Settings.System.DEFAULT_NOTIFICATION_URI;
+        AudioAttributes attributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        channel.setSound(sound, attributes);
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager != null) manager.createNotificationChannel(channel);
     }
@@ -50,6 +62,8 @@ public final class NotificationHelper {
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body == null ? "" : body))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setDefaults(Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE | Notification.DEFAULT_LIGHTS)
+                .setVibrate(new long[]{0, 250, 120, 250})
                 .setAutoCancel(true)
                 .setContentIntent(contentIntent);
 

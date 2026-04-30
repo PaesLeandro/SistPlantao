@@ -100,11 +100,14 @@ public final class AlarmScheduler {
         if (alarmManager == null) return;
 
         PendingIntent intent = pendingIntent(context, index, reminder);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, reminder.triggerAt, intent);
-        } else {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, reminder.triggerAt, intent);
-        }
+        PendingIntent showIntent = PendingIntent.getActivity(
+                context,
+                BASE_REQUEST_CODE + MAX_ALARMS + index,
+                new Intent(context, LauncherActivity.class),
+                pendingFlags()
+        );
+        AlarmManager.AlarmClockInfo alarmClockInfo = new AlarmManager.AlarmClockInfo(reminder.triggerAt, showIntent);
+        alarmManager.setAlarmClock(alarmClockInfo, intent);
     }
 
     private static void cancelAll(Context context) {
@@ -122,9 +125,13 @@ public final class AlarmScheduler {
             intent.putExtra("body", reminder.body);
             intent.putExtra("type", reminder.type);
         }
+        return PendingIntent.getBroadcast(context, BASE_REQUEST_CODE + index, intent, pendingFlags());
+    }
+
+    private static int pendingFlags() {
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
-        return PendingIntent.getBroadcast(context, BASE_REQUEST_CODE + index, intent, flags);
+        return flags;
     }
 
     private static final class Reminder {
