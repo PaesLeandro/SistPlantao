@@ -1190,7 +1190,8 @@
         async requestNotifications() {
           if (this.isNativeAndroid()) {
             await this.syncNativeReminders(true);
-            await new Promise(resolve => setTimeout(resolve, 900));
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            this.refreshNativeReminderStatus();
             try {
               if (typeof window.AndroidReminder.test === 'function') window.AndroidReminder.test();
             } catch (err) {
@@ -1314,6 +1315,11 @@
           } catch (err) {
             console.error('Sincronização nativa falhou', err);
           }
+        },
+
+        refreshNativeReminderStatus() {
+          const note = document.getElementById('notify-note');
+          if (note) note.textContent = this.nativeReminderStatus();
         },
 
         openNativeNotificationSettings() {
