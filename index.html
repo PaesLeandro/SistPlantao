@@ -1190,6 +1190,7 @@
         async requestNotifications() {
           if (this.isNativeAndroid()) {
             await this.syncNativeReminders(true);
+            await new Promise(resolve => setTimeout(resolve, 900));
             try {
               if (typeof window.AndroidReminder.test === 'function') window.AndroidReminder.test();
             } catch (err) {
@@ -1305,8 +1306,7 @@
         syncNativeReminders(showToast = false) {
           if (!this.isNativeAndroid()) return;
           try {
-            const storedShifts = localStorage.getItem(STORAGE_KEY);
-            const payload = storedShifts && storedShifts !== '[]' ? storedShifts : JSON.stringify(this.shifts);
+            const payload = this.shifts && this.shifts.length ? JSON.stringify(this.shifts) : (localStorage.getItem(STORAGE_KEY) || '[]');
             const summary = window.AndroidReminder.sync(payload, String(this.notifyLeadMinutes));
             const note = document.getElementById('notify-note');
             if (note && summary) note.textContent = summary;

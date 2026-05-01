@@ -60,9 +60,13 @@ public class LauncherActivity extends Activity {
                 + "if(window.__androidReminderSyncInstalled)return;"
                 + "window.__androidReminderSyncInstalled=true;"
                 + "var timer=null;"
+                + "function shiftsPayload(){"
+                + "try{if(window.App&&Array.isArray(window.App.shifts)&&window.App.shifts.length){return JSON.stringify(window.App.shifts);}}catch(e){}"
+                + "try{return localStorage.getItem('plantao_pro_v36')||'[]';}catch(e){return '[]';}"
+                + "}"
                 + "function sync(){"
                 + "try{"
-                + "var shifts=localStorage.getItem('plantao_pro_v36')||'[]';"
+                + "var shifts=shiftsPayload();"
                 + "var lead=localStorage.getItem('notifyLeadMinutes')||'60';"
                 + "if(window.AndroidReminder&&AndroidReminder.sync){AndroidReminder.sync(shifts,lead);}"
                 + "}catch(e){}"
@@ -70,6 +74,7 @@ public class LauncherActivity extends Activity {
                 + "function queue(){clearTimeout(timer);timer=setTimeout(sync,700);}"
                 + "var oldSet=localStorage.setItem;"
                 + "localStorage.setItem=function(k,v){oldSet.apply(this,arguments);if(k==='plantao_pro_v36'||k==='notifyLeadMinutes')queue();};"
+                + "window.__androidReminderSyncNow=function(){sync();return true;};"
                 + "document.addEventListener('click',queue,true);"
                 + "document.addEventListener('change',queue,true);"
                 + "window.addEventListener('focus',queue);"
@@ -95,11 +100,11 @@ public class LauncherActivity extends Activity {
                 lead = Integer.parseInt(leadMinutes);
             } catch (NumberFormatException ignored) {
             }
-            String summary = AlarmScheduler.scheduleFromJson(LauncherActivity.this, shiftsJson, lead);
-            if ("[]".equals(shiftsJson) || shiftsJson == null || shiftsJson.trim().isEmpty()) {
-                syncFromLocalStorage(lead);
+            String normalized = shiftsJson == null ? "" : shiftsJson.trim();
+            if (normalized.isEmpty() || "[]".equals(normalized)) {
+                syncFromPageState(lead);
             }
-            return summary;
+            return AlarmScheduler.scheduleFromJson(LauncherActivity.this, shiftsJson, lead);
         }
 
         @JavascriptInterface
@@ -131,10 +136,16 @@ public class LauncherActivity extends Activity {
         }
     }
 
-    private void syncFromLocalStorage(int fallbackLead) {
+    private void syncFromPageState(int fallbackLead) {
         if (webView == null) return;
         webView.post(() -> webView.evaluateJavascript(
-                "(function(){return JSON.stringify({shifts:localStorage.getItem('plantao_pro_v36')||'[]',lead:localStorage.getItem('notifyLeadMinutes')||'" + fallbackLead + "'});})()",
+                "(function(){"
+                        + "var shifts='[]';"
+                        + "try{if(window.App&&Array.isArray(window.App.shifts)&&window.App.shifts.length){shifts=JSON.stringify(window.App.shifts);}else{shifts=localStorage.getItem('plantao_pro_v36')||'[]';}}catch(e){}"
+                        + "var lead='" + fallbackLead + "';"
+                        + "try{lead=localStorage.getItem('notifyLeadMinutes')||lead;}catch(e){}"
+                        + "return JSON.stringify({shifts:shifts,lead:lead});"
+                        + "})()",
                 value -> {
                     try {
                         String json = value;
