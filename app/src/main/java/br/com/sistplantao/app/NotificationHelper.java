@@ -17,7 +17,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 public final class NotificationHelper {
-    private static final String CHANNEL_ID = "plantao_reminders";
+    private static final String CHANNEL_ID = "plantao_reminders_alarm_v2";
 
     private NotificationHelper() {
     }
@@ -26,15 +26,18 @@ public final class NotificationHelper {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
-                "Lembretes de plantao",
+                "Alertas de plantao",
                 NotificationManager.IMPORTANCE_HIGH
         );
-        channel.setDescription("Avisos locais antes dos plantoes cadastrados");
+        channel.setDescription("Alertas sonoros antes dos plantoes cadastrados");
+        channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 250, 120, 250});
-        Uri sound = Settings.System.DEFAULT_NOTIFICATION_URI;
+        channel.setVibrationPattern(new long[]{0, 400, 180, 400, 180, 700});
+        Uri sound = Settings.System.DEFAULT_ALARM_ALERT_URI != null
+                ? Settings.System.DEFAULT_ALARM_ALERT_URI
+                : Settings.System.DEFAULT_NOTIFICATION_URI;
         AudioAttributes attributes = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
         channel.setSound(sound, attributes);
@@ -60,10 +63,13 @@ public final class NotificationHelper {
                 .setContentTitle(title == null || title.isEmpty() ? "Lembrete de plantao" : title)
                 .setContentText(body == null ? "" : body)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body == null ? "" : body))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_REMINDER)
-                .setDefaults(Notification.DEFAULT_SOUND | Notification.DEFAULT_VIBRATE | Notification.DEFAULT_LIGHTS)
-                .setVibrate(new long[]{0, 250, 120, 250})
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setDefaults(Notification.DEFAULT_LIGHTS)
+                .setSound(Settings.System.DEFAULT_ALARM_ALERT_URI)
+                .setVibrate(new long[]{0, 400, 180, 400, 180, 700})
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setOnlyAlertOnce(false)
                 .setAutoCancel(true)
                 .setContentIntent(contentIntent);
 
