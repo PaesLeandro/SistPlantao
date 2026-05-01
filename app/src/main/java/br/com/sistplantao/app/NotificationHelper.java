@@ -17,7 +17,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 public final class NotificationHelper {
-    private static final String CHANNEL_ID = "plantao_reminders_alarm_v2";
+    public static final String CHANNEL_ID = "plantao_reminders_alarm_v3";
 
     private NotificationHelper() {
     }

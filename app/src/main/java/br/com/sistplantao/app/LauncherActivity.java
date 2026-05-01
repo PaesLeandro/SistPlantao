@@ -3,9 +3,12 @@ package br.com.sistplantao.app;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
@@ -107,6 +110,20 @@ public class LauncherActivity extends Activity {
         @JavascriptInterface
         public String status() {
             return AlarmScheduler.lastSummary(LauncherActivity.this);
+        }
+
+        @JavascriptInterface
+        public void openSettings() {
+            Intent intent;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                intent = new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
+                        .putExtra(Settings.EXTRA_CHANNEL_ID, NotificationHelper.CHANNEL_ID);
+            } else {
+                intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.parse("package:" + getPackageName()));
+            }
+            startActivity(intent);
         }
     }
 }

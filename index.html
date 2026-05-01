@@ -471,6 +471,7 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
+    .shift-chip.avulso,
     .shift-chip.avulso-daily {
       background: linear-gradient(135deg, var(--success), #1e8e3e);
     }
@@ -862,15 +863,6 @@
     <!-- Formulário Unificado - Compromisso Avulso -->
     <div id="avulso-panel" class="glass-card hidden">
       <div class="section-title"><i class="fa-solid fa-plus-circle"></i> COMPROMISSO AVULSO</div>
-      
-      <div class="type-selector">
-        <div class="type-option daily active" onclick="App.selectAvulsoType('daily')">
-          <i class="fa-solid fa-sun"></i> Serviço Diário
-        </div>
-        <div class="type-option extra" onclick="App.selectAvulsoType('extra')">
-          <i class="fa-solid fa-plus-circle"></i> Plantão Extra
-        </div>
-      </div>
 
       <label class="field-label" for="avulso-local">Título / Unidade</label>
       <input type="text" id="avulso-local" list="locations-list" placeholder="Ex: UBS Central / Cobertura de Férias" />
@@ -925,6 +917,7 @@
         </div>
         <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
           <button class="btn-ghost" id="btn-notify" onclick="App.requestNotifications()"><i class="fa-solid fa-bell"></i> Ativar lembretes</button>
+          <button class="btn-ghost hidden" id="btn-notify-settings" onclick="App.openNativeNotificationSettings()"><i class="fa-solid fa-volume-high"></i> Som</button>
           <span id="notify-status" class="status-pill"><i class="fa-solid fa-circle-minus"></i> Desativado</span>
         </div>
       </div>
@@ -974,7 +967,7 @@
         theme: localStorage.getItem('theme') || 'dark',
         selectedColor: COLORS[0],
         activePanel: null,
-        avulsoType: 'daily',
+        avulsoType: 'avulso',
         deferredPrompt: null,
         notificationTimer: null,
         notifyLeadMinutes: parseInt(localStorage.getItem('notifyLeadMinutes') || '60', 10),
@@ -1077,6 +1070,7 @@
           this.avulsoType = type;
           const dailyOption = document.querySelector('.type-option.daily');
           const extraOption = document.querySelector('.type-option.extra');
+          if (!dailyOption || !extraOption) return;
           
           if (type === 'daily') {
             dailyOption.classList.add('active');
@@ -1119,6 +1113,7 @@
         syncNotifyUI() {
           const status = document.getElementById('notify-status');
           const btn = document.getElementById('btn-notify');
+          const settingsBtn = document.getElementById('btn-notify-settings');
           const timeInput = document.getElementById('notify-time');
           const note = document.getElementById('notify-note');
           const h = Math.floor(this.notifyLeadMinutes / 60);
@@ -1131,9 +1126,11 @@
             status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Nativo ativo';
             btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sincronizar';
             btn.disabled = false;
+            if (settingsBtn) settingsBtn.classList.remove('hidden');
             if (note) note.textContent = this.nativeReminderStatus();
             return;
           }
+          if (settingsBtn) settingsBtn.classList.add('hidden');
 
           if (!('Notification' in window)) {
             status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Não suportado';
@@ -1317,6 +1314,18 @@
           }
         },
 
+        openNativeNotificationSettings() {
+          if (!this.isNativeAndroid() || typeof window.AndroidReminder.openSettings !== 'function') {
+            this.showToast('Abra as notificações do app nas configurações do Android', true);
+            return;
+          }
+          try {
+            window.AndroidReminder.openSettings();
+          } catch (err) {
+            this.showToast('Não foi possível abrir as configurações', true);
+          }
+        },
+
         getNotifyKey(shift) {
           return `${shift.id || shift.date}-${shift.date}-${shift.time}-${this.notifyLeadMinutes}`;
         },
@@ -1410,7 +1419,7 @@
         },
 
         addAvulso() {
-          const local = document.getElementById('avulso-local').value.trim() || (this.avulsoType === 'daily' ? 'Serviço Diário' : 'Plantão Extra');
+          const local = document.getElementById('avulso-local').value.trim() || 'Compromisso';
           const dateStr = document.getElementById('avulso-date').value;
           const timeInput = document.getElementById('avulso-time').value;
           const obs = document.getElementById('avulso-obs').value.trim();
@@ -1425,15 +1434,15 @@
             local: local,
             date: dateStr,
             time: timeInput,
-            color: this.avulsoType === 'daily' ? '#2ed573' : '#ff9f43',
-            type: `avulso-${this.avulsoType}`,
-            avulsoType: this.avulsoType,
+            color: '#2ed573',
+            type: 'avulso',
+            avulsoType: 'avulso',
             obs: obs
           };
           
           this.shifts.push(newShift);
           this.saveShifts();
-          this.showToast(`${this.avulsoType === 'daily' ? 'Serviço diário' : 'Plantão extra'} adicionado com sucesso!`);
+          this.showToast('Compromisso adicionado com sucesso!');
           
           document.getElementById('avulso-local').value = '';
           document.getElementById('avulso-obs').value = '';
@@ -1780,8 +1789,8 @@
                 
                 if (s.type === 'fixed') {
                   typeIcon = '<i class="fa-solid fa-calendar-week"></i> ';
-                } else if (s.type === 'avulso-daily') {
-                  typeClass = 'avulso-daily';
+                } else if (s.type === 'avulso' || s.type === 'avulso-daily') {
+                  typeClass = 'avulso';
                   typeIcon = '<i class="fa-solid fa-sun"></i> ';
                 } else if (s.type === 'avulso-extra') {
                   typeClass = 'avulso-extra';
