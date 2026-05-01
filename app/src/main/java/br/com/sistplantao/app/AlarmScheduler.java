@@ -24,6 +24,10 @@ public final class AlarmScheduler {
     private static final int BASE_REQUEST_CODE = 31000;
     private static final int MAX_ALARMS = 64;
 
+    private static int lastParsedCount = 0;
+    private static int lastFutureShiftCount = 0;
+    private static String lastFirstShiftText = "";
+
     private AlarmScheduler() {
     }
 
@@ -79,17 +83,25 @@ public final class AlarmScheduler {
 
     private static List<Reminder> parseReminders(String shiftsJson, int leadMinutes) {
         List<Reminder> reminders = new ArrayList<>();
+        lastParsedCount = 0;
+        lastFutureShiftCount = 0;
+        lastFirstShiftText = "";
         try {
             JSONArray shifts = new JSONArray(shiftsJson == null ? "[]" : shiftsJson);
+            lastParsedCount = shifts.length();
             for (int i = 0; i < shifts.length(); i++) {
                 JSONObject shift = shifts.optJSONObject(i);
                 if (shift == null) continue;
-                long shiftAt = parseShiftTime(shift.optString("date"), shift.optString("time", "00:00"));
+                String date = shift.optString("date");
+                String time = shift.optString("time", "00:00");
+                long shiftAt = parseShiftTime(date, time);
+                if (lastFirstShiftText.isEmpty()) lastFirstShiftText = date + " " + time;
                 if (shiftAt <= 0) continue;
+                if (shiftAt > System.currentTimeMillis()) lastFutureShiftCount++;
                 String local = shift.optString("local", "Plantao");
                 String type = shift.optString("type", "");
                 String title = "Lembrete de plantao";
-                String body = local + " - " + shift.optString("date") + " " + shift.optString("time", "00:00");
+                String body = local + " - " + date + " " + time;
                 reminders.add(new Reminder(title, body, type, shiftAt, shiftAt - leadMinutes * 60000L));
             }
         } catch (Exception ignored) {
@@ -151,7 +163,10 @@ public final class AlarmScheduler {
 
     private static String buildSummary(int count, Reminder nextScheduled, long now) {
         if (count <= 0 || nextScheduled == null) {
-            return "Nenhum alerta futuro agendado. Confira se o horario do aviso ainda nao passou.";
+            return "Nenhum alerta futuro agendado. Recebidos: " + lastParsedCount
+                    + ". Futuros: " + lastFutureShiftCount
+                    + ". Primeiro: " + (lastFirstShiftText.isEmpty() ? "vazio" : lastFirstShiftText)
+                    + ". Confira data, hora e antecedencia.";
         }
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(nextScheduled.triggerAt);
