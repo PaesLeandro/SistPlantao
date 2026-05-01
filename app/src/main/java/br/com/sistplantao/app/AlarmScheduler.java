@@ -38,13 +38,16 @@ public final class AlarmScheduler {
         int index = 0;
         Reminder nextScheduled = null;
         for (Reminder reminder : reminders) {
-            if (reminder.triggerAt <= now) continue;
+            if (reminder.triggerAt <= now && reminder.shiftAt <= now) continue;
+            if (reminder.triggerAt <= now) {
+                reminder = reminder.withTriggerAt(now + 5000L);
+            }
             if (nextScheduled == null) nextScheduled = reminder;
             schedule(appContext, reminder, index);
             index++;
             if (index >= MAX_ALARMS) break;
         }
-        String summary = buildSummary(index, nextScheduled);
+        String summary = buildSummary(index, nextScheduled, now);
         saveSummary(appContext, summary);
         return summary;
     }
@@ -87,7 +90,7 @@ public final class AlarmScheduler {
                 String type = shift.optString("type", "");
                 String title = "Lembrete de plantao";
                 String body = local + " - " + shift.optString("date") + " " + shift.optString("time", "00:00");
-                reminders.add(new Reminder(title, body, type, shiftAt - leadMinutes * 60000L));
+                reminders.add(new Reminder(title, body, type, shiftAt, shiftAt - leadMinutes * 60000L));
             }
         } catch (Exception ignored) {
         }
@@ -146,7 +149,7 @@ public final class AlarmScheduler {
         return PendingIntent.getBroadcast(context, BASE_REQUEST_CODE + index, intent, pendingFlags());
     }
 
-    private static String buildSummary(int count, Reminder nextScheduled) {
+    private static String buildSummary(int count, Reminder nextScheduled, long now) {
         if (count <= 0 || nextScheduled == null) {
             return "Nenhum alerta futuro agendado. Confira se o horario do aviso ainda nao passou.";
         }
@@ -156,7 +159,8 @@ public final class AlarmScheduler {
         String mm = String.format("%02d", calendar.get(Calendar.MINUTE));
         String dd = String.format("%02d", calendar.get(Calendar.DAY_OF_MONTH));
         String mo = String.format("%02d", calendar.get(Calendar.MONTH) + 1);
-        return count + " alerta(s) agendado(s). Proximo: " + dd + "/" + mo + " as " + hh + ":" + mm;
+        String prefix = nextScheduled.triggerAt - now <= 15000L ? "Aviso imediato agendado. " : "";
+        return prefix + count + " alerta(s) agendado(s). Proximo: " + dd + "/" + mo + " as " + hh + ":" + mm;
     }
 
     private static int pendingFlags() {
@@ -169,13 +173,19 @@ public final class AlarmScheduler {
         final String title;
         final String body;
         final String type;
+        final long shiftAt;
         final long triggerAt;
 
-        Reminder(String title, String body, String type, long triggerAt) {
+        Reminder(String title, String body, String type, long shiftAt, long triggerAt) {
             this.title = title;
             this.body = body;
             this.type = type;
+            this.shiftAt = shiftAt;
             this.triggerAt = triggerAt;
+        }
+
+        Reminder withTriggerAt(long newTriggerAt) {
+            return new Reminder(title, body, type, shiftAt, newTriggerAt);
         }
     }
 }
