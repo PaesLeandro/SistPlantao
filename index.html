@@ -1307,8 +1307,17 @@
         syncNativeReminders(showToast = false) {
           if (!this.isNativeAndroid()) return;
           try {
-            const payload = this.shifts && this.shifts.length ? JSON.stringify(this.shifts) : (localStorage.getItem(STORAGE_KEY) || '[]');
-            const summary = window.AndroidReminder.sync(payload, String(this.notifyLeadMinutes));
+            const source = this.shifts && this.shifts.length ? this.shifts : JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            const simple = source.map(s => ({
+              date: s.date || '',
+              time: s.time || '00:00',
+              local: s.local || 'Compromisso',
+              type: s.type || 'avulso'
+            }));
+            const payload = JSON.stringify(simple);
+            const summary = typeof window.AndroidReminder.syncSimple === 'function'
+              ? window.AndroidReminder.syncSimple(payload, String(this.notifyLeadMinutes))
+              : window.AndroidReminder.sync(payload, String(this.notifyLeadMinutes));
             const note = document.getElementById('notify-note');
             if (note && summary) note.textContent = summary;
             if (showToast && summary) this.showToast(summary);

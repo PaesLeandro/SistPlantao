@@ -120,6 +120,16 @@ public class LauncherActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String syncSimple(String simpleShiftsJson, String leadMinutes) {
+            int lead = 60;
+            try {
+                lead = Integer.parseInt(leadMinutes);
+            } catch (NumberFormatException ignored) {
+            }
+            return AlarmScheduler.scheduleFromJson(LauncherActivity.this, simpleShiftsJson, lead);
+        }
+
+        @JavascriptInterface
         public void test() {
             NotificationHelper.show(
                     LauncherActivity.this,

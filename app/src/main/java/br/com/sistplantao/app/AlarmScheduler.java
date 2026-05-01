@@ -27,6 +27,7 @@ public final class AlarmScheduler {
     private static int lastParsedCount = 0;
     private static int lastFutureShiftCount = 0;
     private static String lastFirstShiftText = "";
+    private static String lastRawPreview = "";
 
     private AlarmScheduler() {
     }
@@ -86,6 +87,7 @@ public final class AlarmScheduler {
         lastParsedCount = 0;
         lastFutureShiftCount = 0;
         lastFirstShiftText = "";
+        lastRawPreview = preview(shiftsJson);
         try {
             JSONArray shifts = new JSONArray(shiftsJson == null ? "[]" : shiftsJson);
             lastParsedCount = shifts.length();
@@ -105,6 +107,7 @@ public final class AlarmScheduler {
                 reminders.add(new Reminder(title, body, type, shiftAt, shiftAt - leadMinutes * 60000L));
             }
         } catch (Exception ignored) {
+            lastRawPreview = "JSON invalido: " + lastRawPreview;
         }
         Collections.sort(reminders, Comparator.comparingLong(reminder -> reminder.triggerAt));
         return reminders;
@@ -166,6 +169,7 @@ public final class AlarmScheduler {
             return "Nenhum alerta futuro agendado. Recebidos: " + lastParsedCount
                     + ". Futuros: " + lastFutureShiftCount
                     + ". Primeiro: " + (lastFirstShiftText.isEmpty() ? "vazio" : lastFirstShiftText)
+                    + ". Bruto: " + lastRawPreview
                     + ". Confira data, hora e antecedencia.";
         }
         Calendar calendar = Calendar.getInstance();
@@ -182,6 +186,13 @@ public final class AlarmScheduler {
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
         return flags;
+    }
+
+    private static String preview(String value) {
+        if (value == null) return "null";
+        String clean = value.replace('\n', ' ').replace('\r', ' ').trim();
+        if (clean.length() > 90) return clean.substring(0, 90);
+        return clean;
     }
 
     private static final class Reminder {
