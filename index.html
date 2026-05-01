@@ -1305,7 +1305,9 @@
         syncNativeReminders(showToast = false) {
           if (!this.isNativeAndroid()) return;
           try {
-            const summary = window.AndroidReminder.sync(JSON.stringify(this.shifts), String(this.notifyLeadMinutes));
+            const storedShifts = localStorage.getItem(STORAGE_KEY);
+            const payload = storedShifts && storedShifts !== '[]' ? storedShifts : JSON.stringify(this.shifts);
+            const summary = window.AndroidReminder.sync(payload, String(this.notifyLeadMinutes));
             const note = document.getElementById('notify-note');
             if (note && summary) note.textContent = summary;
             if (showToast && summary) this.showToast(summary);

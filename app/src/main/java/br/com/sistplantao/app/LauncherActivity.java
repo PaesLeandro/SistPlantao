@@ -95,7 +95,11 @@ public class LauncherActivity extends Activity {
                 lead = Integer.parseInt(leadMinutes);
             } catch (NumberFormatException ignored) {
             }
-            return AlarmScheduler.scheduleFromJson(LauncherActivity.this, shiftsJson, lead);
+            String summary = AlarmScheduler.scheduleFromJson(LauncherActivity.this, shiftsJson, lead);
+            if ("[]".equals(shiftsJson) || shiftsJson == null || shiftsJson.trim().isEmpty()) {
+                syncFromLocalStorage(lead);
+            }
+            return summary;
         }
 
         @JavascriptInterface
@@ -125,5 +129,28 @@ public class LauncherActivity extends Activity {
             }
             startActivity(intent);
         }
+    }
+
+    private void syncFromLocalStorage(int fallbackLead) {
+        if (webView == null) return;
+        webView.post(() -> webView.evaluateJavascript(
+                "(function(){return JSON.stringify({shifts:localStorage.getItem('plantao_pro_v36')||'[]',lead:localStorage.getItem('notifyLeadMinutes')||'" + fallbackLead + "'});})()",
+                value -> {
+                    try {
+                        String json = value;
+                        if (json == null || "null".equals(json)) return;
+                        if (json.startsWith("\"") && json.endsWith("\"")) {
+                            json = json.substring(1, json.length() - 1)
+                                    .replace("\\\"", "\"")
+                                    .replace("\\\\", "\\");
+                        }
+                        org.json.JSONObject payload = new org.json.JSONObject(json);
+                        String shifts = payload.optString("shifts", "[]");
+                        int lead = payload.optInt("lead", fallbackLead);
+                        AlarmScheduler.scheduleFromJson(LauncherActivity.this, shifts, lead);
+                    } catch (Exception ignored) {
+                    }
+                }
+        ));
     }
 }
