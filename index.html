@@ -1004,6 +1004,7 @@
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.shifts));
           this.updateLocationSuggestions();
           this.syncNativeReminders();
+          setTimeout(() => this.syncNativeReminders(), 500);
         },
 
         setDefaultDates() {
@@ -1130,7 +1131,7 @@
             status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Nativo ativo';
             btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sincronizar';
             btn.disabled = false;
-            if (note) note.textContent = 'Avisos agendados pelo Android. Mantenha a permissão de notificações ativada nas configurações do app.';
+            if (note) note.textContent = this.nativeReminderStatus();
             return;
           }
 
@@ -1191,14 +1192,14 @@
 
         async requestNotifications() {
           if (this.isNativeAndroid()) {
-            this.syncNativeReminders();
+            await this.syncNativeReminders(true);
             try {
               if (typeof window.AndroidReminder.test === 'function') window.AndroidReminder.test();
             } catch (err) {
               console.error('Teste nativo falhou', err);
             }
             this.syncNotifyUI();
-            this.showToast('Teste enviado e lembretes sincronizados');
+            this.showToast(this.nativeReminderStatus());
             return;
           }
           if (!('Notification' in window)) {
@@ -1293,10 +1294,24 @@
           return !!(window.AndroidReminder && typeof window.AndroidReminder.sync === 'function');
         },
 
-        syncNativeReminders() {
+        nativeReminderStatus() {
+          if (!this.isNativeAndroid() || typeof window.AndroidReminder.status !== 'function') {
+            return 'Avisos agendados pelo Android. Mantenha a permissão de notificações ativada nas configurações do app.';
+          }
+          try {
+            return window.AndroidReminder.status();
+          } catch (err) {
+            return 'Avisos agendados pelo Android. Mantenha a permissão de notificações ativada nas configurações do app.';
+          }
+        },
+
+        syncNativeReminders(showToast = false) {
           if (!this.isNativeAndroid()) return;
           try {
-            window.AndroidReminder.sync(JSON.stringify(this.shifts), String(this.notifyLeadMinutes));
+            const summary = window.AndroidReminder.sync(JSON.stringify(this.shifts), String(this.notifyLeadMinutes));
+            const note = document.getElementById('notify-note');
+            if (note && summary) note.textContent = summary;
+            if (showToast && summary) this.showToast(summary);
           } catch (err) {
             console.error('Sincronização nativa falhou', err);
           }

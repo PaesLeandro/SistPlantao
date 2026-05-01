@@ -86,13 +86,13 @@ public class LauncherActivity extends Activity {
 
     private class ReminderBridge {
         @JavascriptInterface
-        public void sync(String shiftsJson, String leadMinutes) {
+        public String sync(String shiftsJson, String leadMinutes) {
             int lead = 60;
             try {
                 lead = Integer.parseInt(leadMinutes);
             } catch (NumberFormatException ignored) {
             }
-            AlarmScheduler.scheduleFromJson(LauncherActivity.this, shiftsJson, lead);
+            return AlarmScheduler.scheduleFromJson(LauncherActivity.this, shiftsJson, lead);
         }
 
         @JavascriptInterface
@@ -102,6 +102,11 @@ public class LauncherActivity extends Activity {
                     "Teste de lembrete",
                     "Som e vibracao das notificacoes do SistPlantao"
             );
+        }
+
+        @JavascriptInterface
+        public String status() {
+            return AlarmScheduler.lastSummary(LauncherActivity.this);
         }
     }
 }

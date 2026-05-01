@@ -20,13 +20,14 @@ public final class AlarmScheduler {
     private static final String PREFS = "native_reminders";
     private static final String KEY_SHIFTS = "shifts_json";
     private static final String KEY_LEAD = "lead_minutes";
+    private static final String KEY_LAST_SUMMARY = "last_summary";
     private static final int BASE_REQUEST_CODE = 31000;
     private static final int MAX_ALARMS = 64;
 
     private AlarmScheduler() {
     }
 
-    public static void scheduleFromJson(Context context, String shiftsJson, int leadMinutes) {
+    public static String scheduleFromJson(Context context, String shiftsJson, int leadMinutes) {
         Context appContext = context.getApplicationContext();
         int lead = Math.max(1, Math.min(10080, leadMinutes));
         savePayload(appContext, shiftsJson, lead);
@@ -35,12 +36,17 @@ public final class AlarmScheduler {
         List<Reminder> reminders = parseReminders(shiftsJson, lead);
         long now = System.currentTimeMillis();
         int index = 0;
+        Reminder nextScheduled = null;
         for (Reminder reminder : reminders) {
             if (reminder.triggerAt <= now) continue;
+            if (nextScheduled == null) nextScheduled = reminder;
             schedule(appContext, reminder, index);
             index++;
             if (index >= MAX_ALARMS) break;
         }
+        String summary = buildSummary(index, nextScheduled);
+        saveSummary(appContext, summary);
+        return summary;
     }
 
     public static void rescheduleSaved(Context context) {
@@ -48,11 +54,23 @@ public final class AlarmScheduler {
         scheduleFromJson(context, prefs.getString(KEY_SHIFTS, "[]"), prefs.getInt(KEY_LEAD, 60));
     }
 
+    public static String lastSummary(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_LAST_SUMMARY, "Nenhum alarme sincronizado ainda");
+    }
+
     private static void savePayload(Context context, String shiftsJson, int lead) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_SHIFTS, shiftsJson == null ? "[]" : shiftsJson)
                 .putInt(KEY_LEAD, lead)
+                .apply();
+    }
+
+    private static void saveSummary(Context context, String summary) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_LAST_SUMMARY, summary)
                 .apply();
     }
 
@@ -126,6 +144,19 @@ public final class AlarmScheduler {
             intent.putExtra("type", reminder.type);
         }
         return PendingIntent.getBroadcast(context, BASE_REQUEST_CODE + index, intent, pendingFlags());
+    }
+
+    private static String buildSummary(int count, Reminder nextScheduled) {
+        if (count <= 0 || nextScheduled == null) {
+            return "Nenhum alerta futuro agendado. Confira se o horario do aviso ainda nao passou.";
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(nextScheduled.triggerAt);
+        String hh = String.format("%02d", calendar.get(Calendar.HOUR_OF_DAY));
+        String mm = String.format("%02d", calendar.get(Calendar.MINUTE));
+        String dd = String.format("%02d", calendar.get(Calendar.DAY_OF_MONTH));
+        String mo = String.format("%02d", calendar.get(Calendar.MONTH) + 1);
+        return count + " alerta(s) agendado(s). Proximo: " + dd + "/" + mo + " as " + hh + ":" + mm;
     }
 
     private static int pendingFlags() {
