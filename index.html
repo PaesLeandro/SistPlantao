@@ -1189,11 +1189,13 @@
 
         async requestNotifications() {
           if (this.isNativeAndroid()) {
-            await this.syncNativeReminders(true);
+            const summary = await this.syncNativeReminders(true);
             await new Promise(resolve => setTimeout(resolve, 1200));
             this.refreshNativeReminderStatus();
             try {
-              if (typeof window.AndroidReminder.test === 'function') window.AndroidReminder.test();
+              const currentStatus = this.nativeReminderStatus();
+              const hasScheduledAlert = /alerta\(s\) agendado\(s\)|Aviso imediato agendado/i.test(currentStatus || summary || '');
+              if (hasScheduledAlert && typeof window.AndroidReminder.test === 'function') window.AndroidReminder.test();
             } catch (err) {
               console.error('Teste nativo falhou', err);
             }
@@ -1308,6 +1310,15 @@
           if (!this.isNativeAndroid()) return;
           try {
             const source = this.shifts && this.shifts.length ? this.shifts : JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            if (!source.length) {
+              if (typeof window.__androidReminderSyncNow === 'function') window.__androidReminderSyncNow();
+              const message = 'Nenhum compromisso cadastrado para sincronizar. Adicione um plantão primeiro.';
+              const note = document.getElementById('notify-note');
+              if (note) note.textContent = message;
+              if (showToast) this.showToast(message, true);
+              setTimeout(() => this.refreshNativeReminderStatus(), 1200);
+              return message;
+            }
             const simple = source.map(s => ({
               date: s.date || '',
               time: s.time || '00:00',

@@ -15,7 +15,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 public class LauncherActivity extends Activity {
-    private static final String APP_URL = "https://sistplantao.vercel.app/";
+    private static final String APP_URL = "https://sistplantao.vercel.app/?apk=18";
     private WebView webView;
 
     @Override
@@ -38,6 +38,7 @@ public class LauncherActivity extends Activity {
         webView.getSettings().setUseWideViewPort(true);
         webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new ReminderBridge(), "AndroidReminder");
+        webView.clearCache(true);
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
@@ -115,6 +116,7 @@ public class LauncherActivity extends Activity {
             String normalized = shiftsJson == null ? "" : shiftsJson.trim();
             if (normalized.isEmpty() || "[]".equals(normalized)) {
                 syncFromPageState(lead);
+                return "Buscando compromissos salvos na tela...";
             }
             return AlarmScheduler.scheduleFromJson(LauncherActivity.this, shiftsJson, lead);
         }
@@ -125,6 +127,11 @@ public class LauncherActivity extends Activity {
             try {
                 lead = Integer.parseInt(leadMinutes);
             } catch (NumberFormatException ignored) {
+            }
+            String normalized = simpleShiftsJson == null ? "" : simpleShiftsJson.trim();
+            if (normalized.isEmpty() || "[]".equals(normalized)) {
+                syncFromPageState(lead);
+                return "Buscando compromissos salvos na tela...";
             }
             return AlarmScheduler.scheduleFromJson(LauncherActivity.this, simpleShiftsJson, lead);
         }
