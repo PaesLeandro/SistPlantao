@@ -1131,6 +1131,7 @@
             return;
           }
           if (settingsBtn) settingsBtn.classList.add('hidden');
+          if (note) note.textContent = 'Pelo link do navegador, o aviso pode aparecer sem som e depende das regras do Android/Chrome. Para som de alarme com tela bloqueada, use o APK instalado.';
 
           if (!('Notification' in window)) {
             status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Não suportado';
@@ -1140,7 +1141,7 @@
           const perm = Notification.permission;
           if (perm === 'granted') {
             status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Ativado';
-            btn.innerHTML = '<i class="fa-solid fa-bell"></i> Testar aviso';
+            btn.innerHTML = '<i class="fa-solid fa-bell"></i> Testar aviso visual';
             btn.disabled = false;
           } else if (perm === 'denied') {
             status.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Bloqueado';
@@ -1214,7 +1215,7 @@
               date: new Date().toISOString().slice(0, 10),
               time: new Date().toTimeString().slice(0, 5)
             }, true);
-            this.showToast('Aviso de teste enviado');
+            this.showToast('Aviso visual enviado. Som com tela bloqueada exige o APK.', true);
             return;
           }
           const perm = await Notification.requestPermission();
@@ -1228,7 +1229,7 @@
               date: new Date().toISOString().slice(0, 10),
               time: new Date().toTimeString().slice(0, 5)
             }, true);
-            this.showToast('Lembretes ativados');
+            this.showToast('Lembretes visuais ativados. Para som de alarme, instale o APK.', true);
           } else {
             this.showToast('Permissão não concedida', true);
           }
@@ -1332,8 +1333,10 @@
             const note = document.getElementById('notify-note');
             if (note && summary) note.textContent = summary;
             if (showToast && summary) this.showToast(summary);
+            return summary;
           } catch (err) {
             console.error('Sincronização nativa falhou', err);
+            return 'Sincronização nativa falhou. Feche e abra o app novamente.';
           }
         },
 

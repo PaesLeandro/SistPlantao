@@ -1,4 +1,4 @@
-const CACHE_NAME = 'plantao-pro-v36-cache-v18';
+const CACHE_NAME = 'plantao-pro-v36-cache-v19';
 const OFFLINE_PAGE = './offline.html';
 const ASSETS = [
   './',
