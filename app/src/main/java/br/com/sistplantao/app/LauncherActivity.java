@@ -15,7 +15,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 public class LauncherActivity extends Activity {
-    private static final String APP_URL = "https://sistplantao.vercel.app/?apk=18";
+    private static final String APP_URL = "https://sistplantao.vercel.app/?apk=19";
     private WebView webView;
 
     @Override

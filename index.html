@@ -1470,7 +1470,8 @@
           
           this.shifts.push(newShift);
           this.saveShifts();
-          this.showToast('Compromisso adicionado com sucesso!');
+          const syncSummary = this.syncNativeReminders();
+          this.showToast(syncSummary || 'Compromisso adicionado com sucesso!');
           
           document.getElementById('avulso-local').value = '';
           document.getElementById('avulso-obs').value = '';
@@ -1580,6 +1581,7 @@
 
           this.shifts = [...this.shifts, ...generated];
           this.saveShifts();
+          const syncSummary = this.syncNativeReminders();
           document.getElementById('form-panel').classList.add('hidden');
           
           let message = `${generated.length} plantão(ões) adicionado(s) com sucesso.`;
@@ -1596,7 +1598,7 @@
           await Swal.fire({ 
             icon: 'success', 
             title: isAlternatingPattern ? 'Escala Alternada Gerada!' : 'Escala gerada!', 
-            text: message, 
+            text: syncSummary ? `${message}\n\n${syncSummary}` : message, 
             confirmButtonColor: '#00d4ff', 
             timer: 3000, 
             showConfirmButton: true 
