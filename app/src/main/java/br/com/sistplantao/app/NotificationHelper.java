@@ -18,6 +18,7 @@ import androidx.core.app.NotificationManagerCompat;
 
 public final class NotificationHelper {
     public static final String CHANNEL_ID = "plantao_reminders_alarm_v3";
+    public static final String MESSAGE_CHANNEL_ID = "plantao_reminders_message_v1";
 
     private NotificationHelper() {
     }
@@ -43,6 +44,23 @@ public final class NotificationHelper {
         channel.setSound(sound, attributes);
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager != null) manager.createNotificationChannel(channel);
+
+        NotificationChannel messageChannel = new NotificationChannel(
+                MESSAGE_CHANNEL_ID,
+                "Lembretes de plantao",
+                NotificationManager.IMPORTANCE_DEFAULT
+        );
+        messageChannel.setDescription("Lembretes com som padrao de notificacao");
+        messageChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+        messageChannel.enableVibration(true);
+        messageChannel.setVibrationPattern(new long[]{0, 180, 120, 180});
+        Uri notificationSound = Settings.System.DEFAULT_NOTIFICATION_URI;
+        AudioAttributes notificationAttributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        messageChannel.setSound(notificationSound, notificationAttributes);
+        if (manager != null) manager.createNotificationChannel(messageChannel);
     }
 
     public static void show(Context context, String title, String body) {
@@ -58,16 +76,16 @@ public final class NotificationHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
         PendingIntent contentIntent = PendingIntent.getActivity(context, 41000, openIntent, flags);
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, MESSAGE_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification_icon)
                 .setContentTitle(title == null || title.isEmpty() ? "Lembrete de plantao" : title)
                 .setContentText(body == null ? "" : body)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body == null ? "" : body))
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setDefaults(Notification.DEFAULT_LIGHTS)
-                .setSound(Settings.System.DEFAULT_ALARM_ALERT_URI)
-                .setVibrate(new long[]{0, 400, 180, 400, 180, 700})
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setDefaults(Notification.DEFAULT_SOUND | Notification.DEFAULT_LIGHTS)
+                .setSound(Settings.System.DEFAULT_NOTIFICATION_URI)
+                .setVibrate(new long[]{0, 180, 120, 180})
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOnlyAlertOnce(false)
                 .setAutoCancel(true)

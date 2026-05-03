@@ -164,6 +164,19 @@ android {
     }
 }
 
+tasks.register('copyWebAssets', Copy) {
+    from(rootProject.projectDir) {
+        include 'index.html'
+        include 'manifest.json'
+        include 'offline.html'
+        include 'sw.js'
+        include 'icons/**'
+    }
+    into "$projectDir/src/main/assets"
+}
+
+preBuild.dependsOn copyWebAssets
+
 task generateShorcutsFile {
     assert twaManifest.shortcuts.size() < 5, "You can have at most 4 shortcuts."
     twaManifest.shortcuts.eachWithIndex { s, i ->

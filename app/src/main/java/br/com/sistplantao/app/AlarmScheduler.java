@@ -23,11 +23,13 @@ public final class AlarmScheduler {
     private static final String KEY_LAST_SUMMARY = "last_summary";
     private static final int BASE_REQUEST_CODE = 31000;
     private static final int MAX_ALARMS = 64;
+    private static final int TEST_ALARM_INDEX = 900;
 
     private static int lastParsedCount = 0;
     private static int lastFutureShiftCount = 0;
     private static String lastFirstShiftText = "";
     private static String lastRawPreview = "";
+    private static String lastScheduleError = "";
 
     private AlarmScheduler() {
     }
@@ -42,14 +44,13 @@ public final class AlarmScheduler {
         long now = System.currentTimeMillis();
         int index = 0;
         Reminder nextScheduled = null;
+        lastScheduleError = "";
         for (Reminder reminder : reminders) {
-            if (reminder.triggerAt <= now && reminder.shiftAt <= now) continue;
-            if (reminder.triggerAt <= now) {
-                reminder = reminder.withTriggerAt(now + 5000L);
-            }
+            if (reminder.triggerAt <= now) continue;
             if (nextScheduled == null) nextScheduled = reminder;
-            schedule(appContext, reminder, index);
-            index++;
+            if (schedule(appContext, reminder, index)) {
+                index++;
+            }
             if (index >= MAX_ALARMS) break;
         }
         String summary = buildSummary(index, nextScheduled, now);
@@ -65,6 +66,31 @@ public final class AlarmScheduler {
     public static String lastSummary(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString(KEY_LAST_SUMMARY, "Nenhum alarme sincronizado ainda");
+    }
+
+    public static String scheduleTestAlarm(Context context) {
+        Context appContext = context.getApplicationContext();
+        cancelTestAlarm(appContext);
+        long triggerAt = System.currentTimeMillis() + 15000L;
+        Reminder reminder = new Reminder(
+                "Teste de lembrete",
+                "Alerta real agendado pelo Android para validar som e vibracao",
+                "test",
+                triggerAt,
+                triggerAt
+        );
+        boolean ok = schedule(appContext, reminder, TEST_ALARM_INDEX);
+        String summary = ok
+                ? "Alerta real de teste agendado para 15 segundos"
+                : "Falha ao agendar alerta de teste" + (lastScheduleError.isEmpty() ? "" : ": " + lastScheduleError);
+        saveSummary(appContext, summary);
+        return summary;
+    }
+
+    private static void cancelTestAlarm(Context context) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null) return;
+        alarmManager.cancel(pendingIntent(context, TEST_ALARM_INDEX, null));
     }
 
     private static void savePayload(Context context, String shiftsJson, int lead) {
@@ -131,19 +157,32 @@ public final class AlarmScheduler {
         }
     }
 
-    private static void schedule(Context context, Reminder reminder, int index) {
+    private static boolean schedule(Context context, Reminder reminder, int index) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (alarmManager == null) return;
+        if (alarmManager == null) {
+            lastScheduleError = "AlarmManager indisponivel";
+            return false;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+            lastScheduleError = "Permissao de alarmes exatos desativada. Ative em Configuracoes > Alarmes e lembretes do app.";
+            return false;
+        }
 
-        PendingIntent intent = pendingIntent(context, index, reminder);
-        PendingIntent showIntent = PendingIntent.getActivity(
-                context,
-                BASE_REQUEST_CODE + MAX_ALARMS + index,
-                new Intent(context, LauncherActivity.class),
-                pendingFlags()
-        );
-        AlarmManager.AlarmClockInfo alarmClockInfo = new AlarmManager.AlarmClockInfo(reminder.triggerAt, showIntent);
-        alarmManager.setAlarmClock(alarmClockInfo, intent);
+        try {
+            PendingIntent intent = pendingIntent(context, index, reminder);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, reminder.triggerAt, intent);
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, reminder.triggerAt, intent);
+            }
+            return true;
+        } catch (Exception error) {
+            String message = error.getMessage();
+            lastScheduleError = message == null || message.trim().isEmpty()
+                    ? error.getClass().getSimpleName()
+                    : message;
+            return false;
+        }
     }
 
     private static void cancelAll(Context context) {
@@ -170,6 +209,7 @@ public final class AlarmScheduler {
                     + ". Futuros: " + lastFutureShiftCount
                     + ". Primeiro: " + (lastFirstShiftText.isEmpty() ? "vazio" : lastFirstShiftText)
                     + ". Bruto: " + lastRawPreview
+                    + (lastScheduleError.isEmpty() ? "" : ". Erro: " + lastScheduleError)
                     + ". Confira data, hora e antecedencia.";
         }
         Calendar calendar = Calendar.getInstance();

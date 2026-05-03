@@ -13,6 +13,7 @@ public class ShiftReminderReceiver extends BroadcastReceiver {
         }
         String title = intent.getStringExtra("title");
         String body = intent.getStringExtra("body");
-        NotificationHelper.show(context, title, body);
+
+        NotificationHelper.show(context.getApplicationContext(), title, body);
     }
 }
