@@ -1,11 +1,21 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR" data-theme="dark" class="theme-boot">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>SistPlantão Pro - V36</title>
   <meta name="theme-color" content="#00d4ff" />
   <link rel="manifest" href="manifest.json" />
+  <script>
+    (function() {
+      try {
+        var savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+          document.documentElement.setAttribute('data-theme', savedTheme);
+        }
+      } catch (err) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -76,6 +86,13 @@
       padding-top: env(safe-area-inset-top, 0px);
       overflow-x: hidden;
       transition: background 0.3s;
+    }
+
+    .theme-boot body,
+    .theme-boot header,
+    .theme-boot .glass-card,
+    .theme-boot .nav-bar {
+      transition: none !important;
     }
 
     html {
@@ -1430,7 +1447,10 @@
             <div class="backup-actions">
               <button class="btn-ghost" onclick="App.exportPdf()"><i class="fa-solid fa-file-pdf"></i> Exportar PDF</button>
               <button class="btn-ghost" onclick="App.exportICS()"><i class="fa-solid fa-calendar-plus"></i> Exportar ICS</button>
+              <button class="btn-ghost" onclick="App.exportBackup()"><i class="fa-solid fa-file-export"></i> Backup</button>
+              <button class="btn-ghost" onclick="document.getElementById('backup-file').click()"><i class="fa-solid fa-file-import"></i> Importar</button>
             </div>
+            <input id="backup-file" type="file" accept="application/json,.json" class="hidden" onchange="App.importBackup(event)" />
             <button id="btn-install" class="install-btn hidden" onclick="App.promptInstall()"><i class="fa-solid fa-download"></i> Instalar como App</button>
           </div>
 
@@ -1459,6 +1479,15 @@
           <div class="settings-item">
             <div class="settings-item-title"><i class="fa-solid fa-palette"></i> Aparência</div>
             <div class="local-note">Alterne entre claro e escuro pelo botão no topo. O PDF usa sempre um relatório claro para impressão.</div>
+          </div>
+
+          <div class="settings-item">
+            <div class="settings-item-title"><i class="fa-solid fa-circle-info"></i> App & Privacidade</div>
+            <div class="local-note">SistPlantão Pro 1.0.0. Seus compromissos ficam salvos no dispositivo e podem ser removidos ou exportados por você.</div>
+            <div class="backup-actions">
+              <button class="btn-ghost" onclick="App.showPrivacyPolicy()"><i class="fa-solid fa-user-shield"></i> Privacidade</button>
+              <button class="btn-ghost" onclick="App.showAbout()"><i class="fa-solid fa-address-card"></i> Sobre</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1574,13 +1603,28 @@
           this.scheduleNextNotification();
           this.startNotifyHeartbeat();
           Calendar.render();
+          this.maybeShowOnboarding();
         },
 
         loadShifts() {
-          const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_BACKUP_KEY);
-          this.shifts = stored ? JSON.parse(stored) : [];
-          if (!localStorage.getItem(STORAGE_KEY) && this.shifts.length) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.shifts));
+          let stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_BACKUP_KEY);
+          if ((!stored || stored === '[]') && this.isNativeAndroid() && typeof window.AndroidReminder.savedShifts === 'function') {
+            try {
+              const nativeStored = window.AndroidReminder.savedShifts();
+              if (nativeStored && nativeStored !== '[]') stored = nativeStored;
+            } catch (err) {}
+          }
+          try {
+            this.shifts = stored ? JSON.parse(stored) : [];
+          } catch (err) {
+            this.shifts = [];
+            this.showToast('Não foi possível ler os dados salvos. Importe um backup se necessário.', true, 3200);
+          }
+          if (this.shifts.length) {
+            const payload = JSON.stringify(this.shifts);
+            localStorage.setItem(STORAGE_KEY, payload);
+            localStorage.setItem(STORAGE_BACKUP_KEY, payload);
+            this.backupShiftsNative(payload);
           }
           this.updateLocationSuggestions();
         },
@@ -1589,8 +1633,16 @@
           const payload = JSON.stringify(this.shifts);
           localStorage.setItem(STORAGE_KEY, payload);
           localStorage.setItem(STORAGE_BACKUP_KEY, payload);
+          this.backupShiftsNative(payload);
           this.updateLocationSuggestions();
           this.queueNativeReminderSync();
+        },
+
+        backupShiftsNative(payload) {
+          if (!this.isNativeAndroid() || typeof window.AndroidReminder.backupShifts !== 'function') return;
+          try {
+            window.AndroidReminder.backupShifts(payload || '[]');
+          } catch (err) {}
         },
 
         setDefaultDates() {
@@ -1637,6 +1689,26 @@
           toast.setAttribute('aria-live', 'polite');
           document.body.appendChild(toast);
           setTimeout(() => toast.remove(), duration);
+        },
+
+        maybeShowOnboarding() {
+          if (localStorage.getItem('plantao_onboarding_done') === '1') return;
+          localStorage.setItem('plantao_onboarding_done', '1');
+          setTimeout(() => {
+            Swal.fire({
+              icon: 'info',
+              title: 'Bem-vindo ao SistPlantão',
+              html: `
+                <div style="text-align:left; display:grid; gap:10px; font-size:14px; line-height:1.45;">
+                  <div><strong>Escala fixa</strong><br>Crie sequências de plantões por período.</div>
+                  <div><strong>Serviço avulso</strong><br>Registre compromissos únicos, coberturas e extras.</div>
+                  <div><strong>Lembretes</strong><br>Ative avisos nas configurações para receber notificações antes do horário.</div>
+                </div>
+              `,
+              confirmButtonText: 'Começar',
+              confirmButtonColor: '#00d4ff'
+            });
+          }, 500);
         },
 
         buildPicker() {
@@ -1722,6 +1794,10 @@
         applyTheme() { 
           document.documentElement.setAttribute('data-theme', this.theme); 
           localStorage.setItem('theme', this.theme); 
+          document.documentElement.classList.remove('theme-boot');
+          if (this.isNativeAndroid() && typeof window.AndroidReminder.setTheme === 'function') {
+            try { window.AndroidReminder.setTheme(this.theme); } catch (err) {}
+          }
         },
         
         setupInstallPrompt() {
@@ -1957,7 +2033,6 @@
             const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
             if (Array.isArray(stored)) stored.forEach(add);
           } catch (err) {
-            console.warn('Falha lendo armazenamento local', err);
           }
 
           document.querySelectorAll('.shift-chip[data-date]').forEach(chip => {
@@ -2033,10 +2108,9 @@
             const note = document.getElementById('notify-note');
             if (note && summary) note.textContent = summary;
             if (showToast && summary) this.showToast(summary);
-            return summary;
-          } catch (err) {
-            console.error('Sincronização nativa falhou', err);
-            const message = `Sincronização nativa falhou: ${err && err.message ? err.message : 'erro desconhecido'}`;
+          return summary;
+        } catch (err) {
+            const message = 'Não foi possível sincronizar os lembretes agora. Tente novamente em instantes.';
             const note = document.getElementById('notify-note');
             if (note) note.textContent = message;
             if (showToast) this.showToast(message, true);
@@ -2061,6 +2135,113 @@
           }
         },
 
+        exportBackup() {
+          const payload = {
+            app: 'SistPlantao',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            notifyLeadMinutes: this.notifyLeadMinutes,
+            shifts: this.shifts
+          };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `sistplantao-backup-${new Date().toISOString().slice(0,10)}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          this.showToast('Backup exportado');
+        },
+
+        async importBackup(event) {
+          const input = event && event.target;
+          const file = input && input.files && input.files[0];
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            const imported = Array.isArray(data) ? data : data.shifts;
+            if (!Array.isArray(imported)) throw new Error('Arquivo sem compromissos validos');
+            const valid = imported
+              .filter(s => s && s.date && s.time)
+              .map(s => ({
+                id: s.id || crypto.randomUUID(),
+                date: String(s.date),
+                time: String(s.time),
+                local: String(s.local || 'Compromisso'),
+                type: s.type === 'fixed' ? 'fixed' : 'avulso',
+                color: s.color || COLORS[0],
+                obs: s.obs || ''
+              }));
+            if (!valid.length) throw new Error('Nenhum compromisso encontrado');
+            const result = await Swal.fire({
+              title: 'Importar backup?',
+              text: `Foram encontrados ${valid.length} compromisso(s). Eles substituirão os dados atuais deste aparelho.`,
+              icon: 'question',
+              showCancelButton: true,
+              confirmButtonColor: '#00d4ff',
+              cancelButtonColor: '#6b7280',
+              confirmButtonText: 'Importar',
+              cancelButtonText: 'Cancelar'
+            });
+            if (!result.isConfirmed) return;
+            this.shifts = valid;
+            if (data.notifyLeadMinutes) {
+              this.notifyLeadMinutes = Math.max(1, Math.min(10080, parseInt(data.notifyLeadMinutes, 10) || 60));
+              localStorage.setItem('notifyLeadMinutes', String(this.notifyLeadMinutes));
+            }
+            this.saveShifts();
+            this.syncNotifyUI();
+            this.scheduleNextNotification();
+            Calendar.render();
+            this.showToast('Backup importado');
+          } catch (err) {
+            await Swal.fire({
+              icon: 'error',
+              title: 'Backup inválido',
+              text: err && err.message ? err.message : 'Não foi possível importar o arquivo.',
+              confirmButtonColor: '#ef476f'
+            });
+          } finally {
+            if (input) input.value = '';
+          }
+        },
+
+        showPrivacyPolicy() {
+          Swal.fire({
+            title: 'Política de Privacidade',
+            html: `
+              <div style="text-align:left; display:grid; gap:10px; font-size:13px; line-height:1.45;">
+                <p><strong>SistPlantão Pro</strong> salva escalas, serviços avulsos, tema e antecedência dos lembretes no próprio dispositivo.</p>
+                <p>O app não exige conta, não envia seus compromissos para servidor próprio e não vende dados pessoais.</p>
+                <p>As notificações são usadas apenas para avisar sobre compromissos cadastrados. PDFs, ICS e backups são gerados quando você solicita.</p>
+                <p>A versão web pode carregar bibliotecas de terceiros por CDN para exportação e interface. A versão empacotada mantém os dados de escala localmente.</p>
+                <p>Você pode apagar compromissos no app ou limpar os dados do aplicativo pelo Android.</p>
+                <p>Versão pública: <a href="privacy.html" target="_blank" rel="noopener">privacy.html</a></p>
+              </div>
+            `,
+            confirmButtonColor: '#00d4ff',
+            width: 560
+          });
+        },
+
+        showAbout() {
+          Swal.fire({
+            title: 'SistPlantão Pro',
+            html: `
+              <div style="text-align:left; display:grid; gap:10px; font-size:14px; line-height:1.45;">
+                <p>Agenda de plantões para escala fixa, serviço avulso, exportação e lembretes locais.</p>
+                <p><strong>Versão:</strong> 1.0.0</p>
+                <p><strong>Dados:</strong> armazenamento local no dispositivo.</p>
+                <p><strong>Suporte:</strong> informe data, modelo do aparelho e o que estava fazendo ao relatar um problema.</p>
+              </div>
+            `,
+            confirmButtonColor: '#00d4ff'
+          });
+        },
+
         getNotifyKey(shift) {
           return `${shift.id || shift.date}-${shift.date}-${shift.time}-${this.notifyLeadMinutes}`;
         },
@@ -2078,7 +2259,6 @@
           try {
             return await navigator.serviceWorker.ready;
           } catch (err) {
-            console.error('Service worker indisponível para notificação', err);
             return null;
           }
         },
@@ -2111,7 +2291,7 @@
               this.saveNotifiedKeys();
             }
           } catch (err) {
-            console.error('Notificação falhou', err);
+            if (force) this.showToast('Não foi possível enviar a notificação de teste', true);
           } finally {
             this.scheduleNextNotification();
           }
@@ -2595,7 +2775,6 @@
               this.showToast(`PDF baixado: ${fileName}`, false, 2200);
             }
           } catch (err) {
-            console.error('Erro ao gerar PDF', err);
             await Swal.fire({
               icon: 'error',
               title: 'Erro ao gerar PDF',
@@ -2794,7 +2973,6 @@
             });
           });
         } catch (err) {
-          console.error('SW registration failed', err);
         }
       }
 

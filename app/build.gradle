@@ -20,6 +20,13 @@ plugins {
     id 'com.android.application'
 }
 
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 def twaManifest = [
     applicationId: 'br.com.sistplantao.app',
     hostName: 'sistplantao.vercel.app', // The domain being opened in the TWA.
@@ -150,16 +157,29 @@ android {
 
         
     }
+    signingConfigs {
+        release {
+            if (hasReleaseKeystore) {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled true
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    lintOptions {
+    lint {
         checkReleaseBuilds false
     }
 }
@@ -169,6 +189,7 @@ tasks.register('copyWebAssets', Copy) {
         include 'index.html'
         include 'manifest.json'
         include 'offline.html'
+        include 'privacy.html'
         include 'sw.js'
         include 'icons/**'
     }

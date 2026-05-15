@@ -1,6 +1,7 @@
 package br.com.sistplantao.app;
 
 import android.app.Notification;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -16,25 +17,36 @@ import android.provider.Settings;
 import androidx.core.app.NotificationCompat;
 
 public class AlarmSoundService extends Service {
+    private static final String ACTION_STOP = "br.com.sistplantao.app.STOP_ALARM";
     private static final int FOREGROUND_ID = 43001;
+    private static final int STOP_REQUEST_CODE = 43002;
     private static final long MAX_RING_MS = 20000L;
 
     private MediaPlayer mediaPlayer;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
-    public static void start(Context context, String title, String body) {
+    public static boolean start(Context context, String title, String body) {
         Intent intent = new Intent(context, AlarmSoundService.class)
                 .putExtra("title", title)
                 .putExtra("body", body);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent);
-        } else {
-            context.startService(intent);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+            return true;
+        } catch (RuntimeException error) {
+            return false;
         }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         String title = intent == null ? null : intent.getStringExtra("title");
         String body = intent == null ? null : intent.getStringExtra("body");
         startForeground(FOREGROUND_ID, buildForegroundNotification(title, body));
@@ -54,6 +66,11 @@ public class AlarmSoundService extends Service {
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         stopSound();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+        } else {
+            stopForeground(true);
+        }
         super.onDestroy();
     }
 
@@ -66,8 +83,18 @@ public class AlarmSoundService extends Service {
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setOngoing(false)
+                .setContentIntent(NotificationHelper.contentIntent(this))
+                .addAction(android.R.drawable.ic_media_pause, "Parar", stopPendingIntent())
+                .setOngoing(true)
+                .setAutoCancel(false)
                 .build();
+    }
+
+    private PendingIntent stopPendingIntent() {
+        Intent intent = new Intent(this, AlarmSoundService.class).setAction(ACTION_STOP);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
+        return PendingIntent.getService(this, STOP_REQUEST_CODE, intent, flags);
     }
 
     private void playAlarmSound() {

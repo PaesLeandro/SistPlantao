@@ -18,9 +18,17 @@ app/build/
 *.apk
 *.aab
 *.keystore
+*.jks
+keystore.properties
 
 # IDE
 .vscode
 .idea
+.project
+.classpath
+.settings/
+app/.project
+app/.classpath
+app/.settings/
 
 .vercel

@@ -6,33 +6,46 @@ import android.app.Activity;
 import android.app.AlarmManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.SharedPreferences;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
 import android.provider.MediaStore;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.Base64;
+import java.util.Locale;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class LauncherActivity extends Activity {
     private static final String APP_URL = "file:///android_asset/index.html";
+    private static final String UI_PREFS = "ui_preferences";
+    private static final String KEY_THEME = "theme";
+    private static final String DATA_PREFS = "web_data_backup";
+    private static final String KEY_SHIFTS_JSON = "shifts_json";
+    private static final int DARK_BG = Color.rgb(3, 7, 13);
+    private static final int LIGHT_BG = Color.rgb(243, 244, 246);
     private WebView webView;
     private final JSONArray pendingNativeShifts = new JSONArray();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        applyStoredWindowTheme();
         requestNotificationPermission();
         NotificationHelper.ensureChannel(this);
         setupWebView();
@@ -41,6 +54,7 @@ public class LauncherActivity extends Activity {
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     private void setupWebView() {
         webView = new WebView(this);
+        webView.setBackgroundColor(windowBackgroundForStoredTheme());
         setContentView(webView);
 
         webView.getSettings().setJavaScriptEnabled(true);
@@ -58,6 +72,31 @@ public class LauncherActivity extends Activity {
             }
         });
         webView.loadUrl(APP_URL);
+    }
+
+    private void applyStoredWindowTheme() {
+        boolean light = isLightThemeStored();
+        int background = light ? LIGHT_BG : DARK_BG;
+        getWindow().setStatusBarColor(background);
+        getWindow().setNavigationBarColor(background);
+        getWindow().getDecorView().setBackgroundColor(background);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            int flags = getWindow().getDecorView().getSystemUiVisibility();
+            if (light) {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            } else {
+                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            }
+            getWindow().getDecorView().setSystemUiVisibility(flags);
+        }
+    }
+
+    private boolean isLightThemeStored() {
+        return "light".equals(getSharedPreferences(UI_PREFS, MODE_PRIVATE).getString(KEY_THEME, "dark"));
+    }
+
+    private int windowBackgroundForStoredTheme() {
+        return isLightThemeStored() ? LIGHT_BG : DARK_BG;
     }
 
     private void requestNotificationPermission() {
@@ -237,6 +276,42 @@ public class LauncherActivity extends Activity {
         }
 
         @JavascriptInterface
+        public String savedShifts() {
+            return getSharedPreferences(DATA_PREFS, MODE_PRIVATE)
+                    .getString(KEY_SHIFTS_JSON, "[]");
+        }
+
+        @JavascriptInterface
+        public String backupShifts(String shiftsJson) {
+            try {
+                String normalized = shiftsJson == null || shiftsJson.trim().isEmpty()
+                        ? "[]"
+                        : shiftsJson.trim();
+                new JSONArray(normalized);
+                getSharedPreferences(DATA_PREFS, MODE_PRIVATE)
+                        .edit()
+                        .putString(KEY_SHIFTS_JSON, normalized)
+                        .apply();
+                return "Backup nativo atualizado";
+            } catch (Exception error) {
+                return "Backup nativo ignorado: " + safeMessage(error);
+            }
+        }
+
+        @JavascriptInterface
+        public void setTheme(String theme) {
+            String normalized = "light".equals(theme) ? "light" : "dark";
+            getSharedPreferences(UI_PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putString(KEY_THEME, normalized)
+                    .apply();
+            runOnUiThread(() -> {
+                applyStoredWindowTheme();
+                if (webView != null) webView.setBackgroundColor(windowBackgroundForStoredTheme());
+            });
+        }
+
+        @JavascriptInterface
         public boolean canScheduleExactAlarms() {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true;
             AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
@@ -274,7 +349,7 @@ public class LauncherActivity extends Activity {
                 String safeName = sanitizeFileName(fileName == null || fileName.trim().isEmpty()
                         ? "plantao.pdf"
                         : fileName.trim());
-                if (!safeName.toLowerCase().endsWith(".pdf")) safeName += ".pdf";
+                if (!safeName.toLowerCase(Locale.ROOT).endsWith(".pdf")) safeName += ".pdf";
                 byte[] bytes;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     bytes = Base64.getDecoder().decode(base64Pdf);
@@ -282,27 +357,34 @@ public class LauncherActivity extends Activity {
                     bytes = android.util.Base64.decode(base64Pdf, android.util.Base64.DEFAULT);
                 }
 
-                ContentResolver resolver = getContentResolver();
-                ContentValues values = new ContentValues();
-                values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
-                values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentResolver resolver = getContentResolver();
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                    values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
                     values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/SistPlantao");
                     values.put(MediaStore.Downloads.IS_PENDING, 1);
-                }
-                Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                if (uri == null) return "Não foi possível criar o arquivo em Downloads";
-                try (OutputStream out = resolver.openOutputStream(uri)) {
-                    if (out == null) return "Não foi possível abrir o arquivo para escrita";
-                    out.write(bytes);
-                    out.flush();
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (uri == null) return "Não foi possível criar o arquivo em Downloads";
+                    try (OutputStream out = resolver.openOutputStream(uri)) {
+                        if (out == null) return "Não foi possível abrir o arquivo para escrita";
+                        out.write(bytes);
+                        out.flush();
+                    }
                     ContentValues done = new ContentValues();
                     done.put(MediaStore.Downloads.IS_PENDING, 0);
                     resolver.update(uri, done, null, null);
+                    return "PDF salvo em Downloads/SistPlantao/" + safeName;
                 }
-                return "PDF salvo em Downloads/SistPlantao/" + safeName;
+
+                File dir = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "SistPlantao");
+                if (!dir.exists() && !dir.mkdirs()) return "Não foi possível criar a pasta de PDFs";
+                File file = new File(dir, safeName);
+                try (OutputStream out = new FileOutputStream(file)) {
+                    out.write(bytes);
+                    out.flush();
+                }
+                return "PDF salvo em " + file.getAbsolutePath();
             } catch (Exception error) {
                 return "Falha ao salvar PDF: " + safeMessage(error);
             }

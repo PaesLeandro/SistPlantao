@@ -70,12 +70,6 @@ public final class NotificationHelper {
             return;
         }
 
-        Intent openIntent = new Intent(context, LauncherActivity.class);
-        openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
-        PendingIntent contentIntent = PendingIntent.getActivity(context, 41000, openIntent, flags);
-
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, MESSAGE_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification_icon)
                 .setContentTitle(title == null || title.isEmpty() ? "Lembrete de plantao" : title)
@@ -89,8 +83,16 @@ public final class NotificationHelper {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOnlyAlertOnce(false)
                 .setAutoCancel(true)
-                .setContentIntent(contentIntent);
+                .setContentIntent(contentIntent(context));
 
         NotificationManagerCompat.from(context).notify((int) (System.currentTimeMillis() % Integer.MAX_VALUE), builder.build());
+    }
+
+    public static PendingIntent contentIntent(Context context) {
+        Intent openIntent = new Intent(context, LauncherActivity.class);
+        openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
+        return PendingIntent.getActivity(context, 41000, openIntent, flags);
     }
 }

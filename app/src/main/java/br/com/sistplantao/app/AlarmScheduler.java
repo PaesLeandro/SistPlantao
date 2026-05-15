@@ -13,8 +13,8 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 public final class AlarmScheduler {
     private static final String PREFS = "native_reminders";
@@ -135,7 +135,7 @@ public final class AlarmScheduler {
         } catch (Exception ignored) {
             lastRawPreview = "JSON invalido: " + lastRawPreview;
         }
-        Collections.sort(reminders, Comparator.comparingLong(reminder -> reminder.triggerAt));
+        Collections.sort(reminders, (left, right) -> Long.compare(left.triggerAt, right.triggerAt));
         return reminders;
     }
 
@@ -205,19 +205,20 @@ public final class AlarmScheduler {
 
     private static String buildSummary(int count, Reminder nextScheduled, long now) {
         if (count <= 0 || nextScheduled == null) {
-            return "Nenhum alerta futuro agendado. Recebidos: " + lastParsedCount
-                    + ". Futuros: " + lastFutureShiftCount
-                    + ". Primeiro: " + (lastFirstShiftText.isEmpty() ? "vazio" : lastFirstShiftText)
-                    + ". Bruto: " + lastRawPreview
-                    + (lastScheduleError.isEmpty() ? "" : ". Erro: " + lastScheduleError)
-                    + ". Confira data, hora e antecedencia.";
+            if (!lastScheduleError.isEmpty()) {
+                return "Não foi possível agendar os lembretes. Verifique as permissões de notificação e alarmes do app.";
+            }
+            if (lastParsedCount <= 0 || lastFutureShiftCount <= 0) {
+                return "Nenhum compromisso futuro encontrado para lembrete.";
+            }
+            return "Nenhum alerta futuro agendado. Confira data, hora e antecedência.";
         }
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(nextScheduled.triggerAt);
-        String hh = String.format("%02d", calendar.get(Calendar.HOUR_OF_DAY));
-        String mm = String.format("%02d", calendar.get(Calendar.MINUTE));
-        String dd = String.format("%02d", calendar.get(Calendar.DAY_OF_MONTH));
-        String mo = String.format("%02d", calendar.get(Calendar.MONTH) + 1);
+        String hh = String.format(Locale.ROOT, "%02d", calendar.get(Calendar.HOUR_OF_DAY));
+        String mm = String.format(Locale.ROOT, "%02d", calendar.get(Calendar.MINUTE));
+        String dd = String.format(Locale.ROOT, "%02d", calendar.get(Calendar.DAY_OF_MONTH));
+        String mo = String.format(Locale.ROOT, "%02d", calendar.get(Calendar.MONTH) + 1);
         String prefix = nextScheduled.triggerAt - now <= 15000L ? "Aviso imediato agendado. " : "";
         return prefix + count + " alerta(s) agendado(s). Proximo: " + dd + "/" + mo + " as " + hh + ":" + mm;
     }

@@ -7,13 +7,12 @@ import android.content.Intent;
 public class ShiftReminderReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
-            AlarmScheduler.rescheduleSaved(context);
-            return;
-        }
-        String title = intent.getStringExtra("title");
-        String body = intent.getStringExtra("body");
+        String title = intent == null ? null : intent.getStringExtra("title");
+        String body = intent == null ? null : intent.getStringExtra("body");
 
-        NotificationHelper.show(context.getApplicationContext(), title, body);
+        Context appContext = context.getApplicationContext();
+        if (!AlarmSoundService.start(appContext, title, body)) {
+            NotificationHelper.show(appContext, title, body);
+        }
     }
 }

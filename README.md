@@ -23,7 +23,8 @@ Agenda e escala de plantões offline-first, instalável como app (PWA) e pronta 
 - `sw.js` — cache de assets externos, offline fallback, atualização assistida.
 - `manifest.json` — metadados PWA (ícones 192/512).
 - `offline.html` — página sem rede.
-- `.well-known/assetlinks.json` — placeholder para TWA (preencher SHA256 e package).
+- `privacy.html` — política de privacidade pública para loja e usuários.
+- `.well-known/assetlinks.json` — vínculo Android/TWA com package e SHA256.
 - `vercel.json` — headers para SW/manifest e cache de offline.
 - `icons/` — ícones PNG exigidos pelo manifest.
 
@@ -45,7 +46,7 @@ Para o service worker, sirva via HTTPS ou `serve --ssl` com certificado local.
 2. `npm i -g @bubblewrap/cli`
 3. `bubblewrap init --manifest=https://sistplantao.vercel.app/manifest.json` (defina `packageId`).
 4. `bubblewrap build` → `.aab`.
-5. Ajuste `.well-known/assetlinks.json` com packageId + SHA256 do keystore; redeploy no Vercel.
+5. Confira `.well-known/assetlinks.json` com packageId + SHA256 da assinatura final; redeploy no Vercel.
 6. Publique o `.aab` no Play Console (Play App Signing).
 
 ## Licença

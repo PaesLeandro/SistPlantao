@@ -6,6 +6,7 @@ const ASSETS = [
   './manifest.json',
   './sw.js',
   './offline.html',
+  './privacy.html',
   'https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@700&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/sweetalert2@11',
