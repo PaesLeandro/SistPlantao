@@ -24,6 +24,7 @@ Agenda e escala de plantões offline-first, instalável como app (PWA) e pronta 
 - `manifest.json` — metadados PWA (ícones 192/512).
 - `offline.html` — página sem rede.
 - `privacy.html` — política de privacidade pública para loja e usuários.
+- `docs/CHANGELOG-TECNICO.md` — histórico técnico das mudanças Android/PWA e cuidados para próximas atualizações.
 - `.well-known/assetlinks.json` — vínculo Android/TWA com package e SHA256.
 - `vercel.json` — headers para SW/manifest e cache de offline.
 - `icons/` — ícones PNG exigidos pelo manifest.
