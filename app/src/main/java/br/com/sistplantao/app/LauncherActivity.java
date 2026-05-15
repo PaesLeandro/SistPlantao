@@ -258,8 +258,8 @@ public class LauncherActivity extends Activity {
 
         @JavascriptInterface
         public void test() {
-            AlarmSoundService.start(
-                    LauncherActivity.this,
+            NotificationHelper.show(
+                    LauncherActivity.this.getApplicationContext(),
                     "Teste de lembrete",
                     "Som e vibracao das notificacoes do SistPlantao"
             );
@@ -332,7 +332,7 @@ public class LauncherActivity extends Activity {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 intent = new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
-                        .putExtra(Settings.EXTRA_CHANNEL_ID, NotificationHelper.CHANNEL_ID);
+                        .putExtra(Settings.EXTRA_CHANNEL_ID, NotificationHelper.MESSAGE_CHANNEL_ID);
             } else {
                 intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                         .setData(Uri.parse("package:" + getPackageName()));

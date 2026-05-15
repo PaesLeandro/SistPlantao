@@ -11,8 +11,6 @@ public class ShiftReminderReceiver extends BroadcastReceiver {
         String body = intent == null ? null : intent.getStringExtra("body");
 
         Context appContext = context.getApplicationContext();
-        if (!AlarmSoundService.start(appContext, title, body)) {
-            NotificationHelper.show(appContext, title, body);
-        }
+        NotificationHelper.show(appContext, title, body);
     }
 }

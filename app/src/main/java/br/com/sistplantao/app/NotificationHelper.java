@@ -17,7 +17,6 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 public final class NotificationHelper {
-    public static final String CHANNEL_ID = "plantao_reminders_alarm_v3";
     public static final String MESSAGE_CHANNEL_ID = "plantao_reminders_message_v1";
 
     private NotificationHelper() {
@@ -25,26 +24,6 @@ public final class NotificationHelper {
 
     public static void ensureChannel(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "Alertas de plantao",
-                NotificationManager.IMPORTANCE_HIGH
-        );
-        channel.setDescription("Alertas sonoros antes dos plantoes cadastrados");
-        channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-        channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 400, 180, 400, 180, 700});
-        Uri sound = Settings.System.DEFAULT_ALARM_ALERT_URI != null
-                ? Settings.System.DEFAULT_ALARM_ALERT_URI
-                : Settings.System.DEFAULT_NOTIFICATION_URI;
-        AudioAttributes attributes = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build();
-        channel.setSound(sound, attributes);
-        NotificationManager manager = context.getSystemService(NotificationManager.class);
-        if (manager != null) manager.createNotificationChannel(channel);
-
         NotificationChannel messageChannel = new NotificationChannel(
                 MESSAGE_CHANNEL_ID,
                 "Lembretes de plantao",
@@ -60,6 +39,7 @@ public final class NotificationHelper {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
         messageChannel.setSound(notificationSound, notificationAttributes);
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager != null) manager.createNotificationChannel(messageChannel);
     }
 

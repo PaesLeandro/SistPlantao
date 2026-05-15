@@ -9,8 +9,6 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:name=".Application"
@@ -56,13 +54,5 @@
             </intent-filter>
         </receiver>
 
-        <service
-            android:name=".AlarmSoundService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Toca por ate 20 segundos um alarme sonoro de lembrete de plantao agendado pelo usuario, com notificacao visivel e acao Parar." />
-        </service>
     </application>
 </manifest>
